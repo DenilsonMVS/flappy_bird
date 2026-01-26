@@ -338,6 +338,7 @@ dependencies = [
  "gl",
  "glfw",
  "nalgebra-glm",
+ "vertex_derive",
 ]
 
 [[package]]
@@ -1185,6 +1186,15 @@ dependencies = [
  "aligned-vec",
  "num-traits",
  "wasm-bindgen",
+]
+
+[[package]]
+name = "vertex_derive"
+version = "0.1.0"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn",
 ]
 
 [[package]]

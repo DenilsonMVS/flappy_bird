@@ -71,17 +71,17 @@ impl Graphics {
         GRAPHICS_INITIALIZED.compare_exchange(false, true, Ordering::SeqCst, Ordering::SeqCst).ok()?;
         
         let mut glfw = glfw::init(fail_on_errors!()).ok()?;
-
-        let (mut window, events) = glfw.create_window(
-            window_dimensions.x, window_dimensions.y, window_title,
-            glfw::WindowMode::Windowed)?;
-
         glfw.window_hint(glfw::WindowHint::ContextVersion(3, 3));
         glfw.window_hint(glfw::WindowHint::OpenGlProfile(glfw::OpenGlProfileHint::Core));
         glfw.window_hint(glfw::WindowHint::OpenGlForwardCompat(true));
         glfw.window_hint(glfw::WindowHint::OpenGlDebugContext(true));
 
+        let (mut window, events) = glfw.create_window(
+            window_dimensions.x, window_dimensions.y, window_title,
+            glfw::WindowMode::Windowed)?;
+
         window.make_current();
+        glfw.set_swap_interval(glfw::SwapInterval::Sync(1));
         window.set_key_polling(true);
 
         gl::load_with(|s| 

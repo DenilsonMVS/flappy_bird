@@ -1,6 +1,12 @@
 
 use nalgebra_glm as glm;
+pub mod buffer;
+pub mod vertex_array_object;
+pub mod types;
 
+pub trait Bindable {
+    fn bind(&self);
+}
 
 trait GlEnum: Sized {
     fn to_gl_enum(&self) -> u32;
