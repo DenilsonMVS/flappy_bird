@@ -1,6 +1,6 @@
 use std::{marker::PhantomData};
 
-use crate::graphics::renderer::{self, Bindable, GlEnum, buffer::BindableLayout, types::{GlType, GlTypeEnum}};
+use crate::graphics::renderer::{Bindable, GlEnum, buffer::BindableLayout, drawable::Drawable, types::{GlType, GlTypeEnum}};
 
 
 pub struct FieldType {
@@ -31,13 +31,13 @@ pub trait VertexLayout {
     fn get_stride(&self) -> i32;
 }
 
-pub struct VertexArrayObject {
+pub struct VertexArrayObject<'a> {
     id: u32,
-    _marker: PhantomData<renderer::Renderer>,
+    _marker: PhantomData<&'a dyn BindableLayout>,
 }
 
-impl VertexArrayObject {
-    pub fn new(buffers: &[&dyn BindableLayout]) -> Self {
+impl<'a> VertexArrayObject<'a> {
+    pub fn new(buffers: &[&'a dyn BindableLayout]) -> Self {
         let mut id: u32 = 0u32;
         unsafe {
             gl::GenVertexArrays(1, &mut id);
@@ -72,19 +72,28 @@ impl VertexArrayObject {
 
         return Self { id, _marker: PhantomData };
     }
+}
 
-    pub fn draw(&self, count: i32) {
-        self.bind();
+impl<'a> Bindable for VertexArrayObject<'a> {
+    fn bind(&self) {
         unsafe {
-            gl::DrawArrays(gl::TRIANGLES, 0, count);
+            gl::BindVertexArray(self.id);
         }
     }
 }
 
-impl Bindable for VertexArrayObject {
-    fn bind(&self) {
+impl<'a> Drawable for VertexArrayObject<'a> {
+    fn draw(&self, count: i32, draw_mode: super::drawable::DrawMode) {
         unsafe {
-            gl::BindVertexArray(self.id);
+            gl::DrawArrays(draw_mode.to_gl_enum(), 0, count);
+        }
+    }
+}
+
+impl<'a> Drop for VertexArrayObject<'a> {
+    fn drop(&mut self) {
+        unsafe {
+            gl::DeleteVertexArrays(1, &mut self.id);
         }
     }
 }

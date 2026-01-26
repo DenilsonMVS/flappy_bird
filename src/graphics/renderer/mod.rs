@@ -3,6 +3,8 @@ use nalgebra_glm as glm;
 pub mod buffer;
 pub mod vertex_array_object;
 pub mod types;
+pub mod program;
+pub mod drawable;
 
 pub trait Bindable {
     fn bind(&self);

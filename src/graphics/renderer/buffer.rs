@@ -1,6 +1,6 @@
-use std::{marker::PhantomData, os::raw::c_void};
+use std::{marker::PhantomData, os::raw::c_void, ptr::null};
 
-use crate::graphics::renderer::{self, Bindable, GlEnum, vertex_array_object::{FieldType, StaticVertexLayout, VertexLayout}};
+use crate::graphics::renderer::{self, Bindable, GlEnum, drawable::Drawable, vertex_array_object::{FieldType, StaticVertexLayout, VertexLayout}};
 
 
 pub enum BufferUsage {
@@ -126,7 +126,7 @@ impl<'a, T: StaticVertexLayout> VertexLayout for VertexBuffer<'a, T> {
 }
 
 
-pub trait IndexType: Sized {
+pub trait IndexType {
 	fn to_gl_enum() -> u32;
 }
 
@@ -180,5 +180,14 @@ impl<'a, T: IndexType> Bindable for IndexBuffer<'a, T> {
         unsafe {
 			gl::BindBuffer(gl::ELEMENT_ARRAY_BUFFER, self.id);
 		}
+    }
+}
+
+impl <'a, T: IndexType> Drawable for IndexBuffer<'a, T> {
+    fn draw(&self, count: i32, draw_mode: renderer::drawable::DrawMode) {
+        self.bind();
+        unsafe {
+            gl::DrawElements(draw_mode.to_gl_enum(), count, T::to_gl_enum(), null());
+        }
     }
 }
