@@ -1,7 +1,7 @@
 use std::{marker::PhantomData, os::raw::c_void};
 
 use image::{GenericImageView, load_from_memory};
-
+use nalgebra_glm as glm;
 use crate::graphics::renderer::{GlEnum, Renderer};
 
 pub enum MagFiltering {
@@ -162,6 +162,43 @@ impl<'a> Texture<'a> {
             gl::ActiveTexture(gl::TEXTURE0 + unit);
             gl::BindTexture(gl::TEXTURE_2D, self.id);
         }
+    }
+
+    pub fn from_font_raw(_renderer: &'a Renderer, bytes: &[glm::U8Vec3], width: usize) -> Self {
+        let mut id = 0u32;
+
+        let height = bytes.len() / width;
+
+        unsafe {
+            gl::GenTextures(1, &mut id);
+			gl::BindTexture(gl::TEXTURE_2D, id);
+
+            gl::PixelStorei(gl::UNPACK_ALIGNMENT, 1);
+
+            gl::TexImage2D(
+                gl::TEXTURE_2D,
+                0,
+                gl::RGB8 as i32,
+                width as i32,
+                height as i32,
+                0,
+                gl::RGB,
+                gl::UNSIGNED_BYTE,
+                bytes.as_ptr() as *const c_void
+            );
+
+            gl::GenerateMipmap(gl::TEXTURE_2D);
+
+            gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_MIN_FILTER, gl::LINEAR_MIPMAP_LINEAR as i32);
+			gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_MAG_FILTER, gl::LINEAR as i32);
+            gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_WRAP_S, gl::CLAMP_TO_EDGE as i32);
+            gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_WRAP_T, gl::CLAMP_TO_EDGE as i32);
+        }
+
+        return Self {
+            id,
+            _marker: PhantomData
+        };
     }
 }
 

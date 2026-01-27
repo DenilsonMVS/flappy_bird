@@ -4,7 +4,7 @@ pub mod graphics;
 use glfw::{Action, Context, Key, PWindow};
 use nalgebra_glm as glm;
 use vertex_derive::{GlVertex, program_interface};
-use crate::graphics::renderer::{Bindable, BlendFactor, Capability, ClearField, Renderer, buffer::{BufferUsage, VertexBuffer}, drawable::{DrawMode, Drawable}, program::{Program, ShaderType}, texture::Texture, uniform::Uniform, vertex_array_object::{FieldType, StaticVertexLayout, VertexArrayObject}};
+use crate::graphics::renderer::{Bindable, BlendFactor, Capability, ClearField, Renderer, buffer::{BufferUsage, VertexBuffer}, drawable::{DrawMode, Drawable}, fonts::Font, program::{Program, ShaderType}, texture::Texture, uniform::Uniform, vertex_array_object::{FieldType, StaticVertexLayout, VertexArrayObject}};
 
 #[repr(C)]
 #[derive(GlVertex)]
@@ -42,6 +42,9 @@ fn main() {
     let mut setup = graphics::Graphics::new(glm::U32Vec2::new(800, 600), "Flappy Bird").unwrap();
     let (glfw, window, events, renderer) = setup.get();
 
+    let font_texture = Font::from_bytes(renderer, include_bytes!("../res/fonts/FreeMono.ttf")).unwrap();
+    font_texture.bind_to_unit(0);
+
     renderer.enable(Capability::Blend);
     renderer.blend_func(BlendFactor::SrcAlpha, BlendFactor::OneMinusSrcAlpha);
 
@@ -72,14 +75,14 @@ fn main() {
     program.bind();
     program.u_texture.set(&0);
 
-    let texture = Texture::from_image_bytes(
-        renderer,
-        include_bytes!("../res/textures/Frame-1.png"),
-        graphics::renderer::texture::MagFiltering::Nearest,
-        graphics::renderer::texture::MinFiltering::LinearMipmapLinear,
-        graphics::renderer::texture::TextureWrap::ClampToEdge
-    ).unwrap();
-    texture.bind_to_unit(0);
+    // let texture = Texture::from_image_bytes(
+    //     renderer,
+    //     include_bytes!("../res/textures/Frame-1.png"),
+    //     graphics::renderer::texture::MagFiltering::Nearest,
+    //     graphics::renderer::texture::MinFiltering::LinearMipmapLinear,
+    //     graphics::renderer::texture::TextureWrap::ClampToEdge
+    // ).unwrap();
+    // texture.bind_to_unit(0);
 
     renderer.clear_color(&glm::Vec4::new(0.1, 0.2, 0.3, 0.0));
 

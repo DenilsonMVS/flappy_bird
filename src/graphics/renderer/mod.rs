@@ -7,6 +7,7 @@ pub mod program;
 pub mod drawable;
 pub mod texture;
 pub mod uniform;
+pub mod fonts;
 
 pub trait Bindable {
     fn bind(&self);
