@@ -1,6 +1,6 @@
 use std::{marker::PhantomData};
 
-use crate::graphics::renderer::{Bindable, GlEnum, buffer::BindableLayout, drawable::Drawable, types::{GlType, GlTypeEnum}};
+use crate::graphics::renderer::{Bindable, GlEnum, buffer::BindableLayout, drawable::{DrawMode, Drawable}, types::{GlType, GlTypeEnum}};
 
 
 pub struct FieldType {
@@ -29,6 +29,7 @@ pub trait StaticVertexLayout: Sized {
 pub trait VertexLayout {
     fn get_fields(&self) -> &'static [FieldType];
     fn get_stride(&self) -> i32;
+    fn get_divisor(&self) -> u32 { 0 }
 }
 
 pub struct VertexArrayObject<'a> {
@@ -50,6 +51,7 @@ impl<'a> VertexArrayObject<'a> {
             buffer.bind();
             let fields = buffer.get_fields();
             let stride = buffer.get_stride();
+            let divisor = buffer.get_divisor();
             let mut current_offset = 0usize;
 
             for field in fields {
@@ -77,6 +79,10 @@ impl<'a> VertexArrayObject<'a> {
                             );
                         }
                     }
+
+                    if divisor > 0 {
+                        gl::VertexAttribDivisor(attribute, divisor);
+                    }
                 }
 
 				current_offset += field.gl_type.get_size() * (field.size as usize);
@@ -86,6 +92,18 @@ impl<'a> VertexArrayObject<'a> {
 
         return Self { id, _marker: PhantomData };
     }
+
+    pub fn draw_instanced(&self, vertex_count: i32, instance_count: i32, draw_mode: DrawMode) {
+		self.bind();
+		unsafe {
+			gl::DrawArraysInstanced(
+				draw_mode.to_gl_enum(),
+				0,
+				vertex_count,
+				instance_count
+			);
+		}
+	}
 }
 
 impl<'a> Bindable for VertexArrayObject<'a> {
@@ -97,7 +115,7 @@ impl<'a> Bindable for VertexArrayObject<'a> {
 }
 
 impl<'a> Drawable for VertexArrayObject<'a> {
-    fn draw(&self, count: i32, draw_mode: super::drawable::DrawMode) {
+    fn draw(&self, count: i32, draw_mode: DrawMode) {
         unsafe {
             gl::DrawArrays(draw_mode.to_gl_enum(), 0, count);
         }

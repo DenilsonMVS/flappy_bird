@@ -51,6 +51,7 @@ impl<T: VertexLayout + Bindable> BindableLayout for T {}
 
 pub struct VertexBuffer<'a, T: StaticVertexLayout> {
     id: u32,
+    divisor: u32,
     _marker: PhantomData<&'a renderer::Renderer>,
     _type_marker: PhantomData<T>,
 }
@@ -64,16 +65,16 @@ impl<'a, T: StaticVertexLayout> VertexBuffer<'a, T> {
 
         return Self {
             id,
+            divisor: 0,
             _marker: PhantomData,
             _type_marker: PhantomData,
         };
     }
 
-    pub fn bind(&self) {
-        unsafe {
-            gl::BindBuffer(gl::ARRAY_BUFFER, self.id);
-        }
-    }
+    pub fn set_instanced(mut self, divisor: u32) -> Self {
+		self.divisor = divisor;
+		return self;
+	}
 
     pub fn set_data(&mut self, data: &[T], usage: BufferUsage) {
         self.bind();
@@ -123,6 +124,9 @@ impl<'a, T: StaticVertexLayout> VertexLayout for VertexBuffer<'a, T> {
     fn get_stride(&self) -> i32 {
         T::get_stride()
     }
+    fn get_divisor(&self) -> u32 {
+		self.divisor
+	}
 }
 
 

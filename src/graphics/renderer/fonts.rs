@@ -6,9 +6,16 @@ use nalgebra_glm as glm;
 
 #[repr(C)]
 #[derive(GlVertex)]
-pub struct Vertex {
-    position: glm::Vec2,
+pub struct GlyphAttrs {
+    bound_min: glm::Vec2,
+    bound_max: glm::Vec2,
     character_idx: u32,
+}
+
+#[repr(C)]
+#[derive(GlVertex)]
+pub struct BaseFormat {
+    offsets: glm::Vec2,
 }
 
 struct GlyphInfo {
@@ -24,6 +31,7 @@ struct Glyph {
 
 pub struct Font<'a> {
     texture: Texture<'a>,
+    base_vbo: VertexBuffer<'a, BaseFormat>,
     glyphs: Vec<Glyph>,
     ascender: f32,
 	descender: f32
@@ -148,21 +156,33 @@ impl<'a> Font<'a> {
         }
 
         let texture = Texture::from_font_raw(renderer, raw_image_data.as_slice(), atlas_width);
-        
+        let mut base_vbo = VertexBuffer::new(renderer);
+        base_vbo.set_data(&[
+            BaseFormat { offsets: glm::vec2(0.0, 0.0) },
+            BaseFormat { offsets: glm::vec2(0.0, 1.0) },
+            BaseFormat { offsets: glm::vec2(1.0, 1.0) },
+            BaseFormat { offsets: glm::vec2(1.0, 0.0) },
+        ], BufferUsage::StaticDraw);
+
         return Some(Self {
             texture,
+            base_vbo,
             glyphs,
             ascender: font.ascender() as f32,
 			descender: font.descender() as f32,
         });
     }
 
+    pub fn get_vbo(&'a self) -> &'a VertexBuffer<'a, BaseFormat> {
+        &self.base_vbo
+    }
+
     pub fn bind_to_unit(&self, unit: u32) {
         self.texture.bind_to_unit(unit);
     }
 
-    pub fn create_text_vbo<'b>(&self, renderer: &'b Renderer, text: &str, center: glm::Vec2, line_height: f32) -> (VertexBuffer<'b, Vertex>, usize) {
-        let mut vertices = Vec::new();
+    pub fn create_text_vbo<'b>(&self, renderer: &'b Renderer, text: &str, center: glm::Vec2, line_height: f32) -> (VertexBuffer<'b, GlyphAttrs>, usize) {
+        let mut glyph_buffer_data = Vec::with_capacity(text.len());
 
         let total_width = text.chars().fold(0.0f32, |acc, c|
             acc + self.glyphs
@@ -185,20 +205,20 @@ impl<'a> Font<'a> {
                 let min_pos = glm::vec2(cursor_x, cursor_y) + info.bound_min * scale;
                 let max_pos = glm::vec2(cursor_x, cursor_y) + info.bound_max * scale;
 
-                vertices.push(Vertex { position: glm::vec2(min_pos.x, max_pos.y), character_idx: idx as u32 });
-                vertices.push(Vertex { position: glm::vec2(min_pos.x, min_pos.y), character_idx: idx as u32 });
-                vertices.push(Vertex { position: glm::vec2(max_pos.x, min_pos.y), character_idx: idx as u32 });
-
-                vertices.push(Vertex { position: glm::vec2(min_pos.x, max_pos.y), character_idx: idx as u32 });
-                vertices.push(Vertex { position: glm::vec2(max_pos.x, min_pos.y), character_idx: idx as u32 });
-                vertices.push(Vertex { position: glm::vec2(max_pos.x, max_pos.y), character_idx: idx as u32 });
+                glyph_buffer_data.push(GlyphAttrs {
+                    bound_min: min_pos,
+                    bound_max: max_pos,
+                    character_idx: idx as u32
+                });
 
                 cursor_x += info.advance * scale;
             }
         }
 
-        let mut vbo = VertexBuffer::new(renderer);
-        vbo.set_data(&vertices, BufferUsage::StaticDraw);
-        (vbo, vertices.len())
+        let mut vbo = VertexBuffer::new(renderer)
+            .set_instanced(1);
+        vbo.set_data(&glyph_buffer_data, BufferUsage::StaticDraw);
+
+        (vbo, glyph_buffer_data.len())
     }
 }

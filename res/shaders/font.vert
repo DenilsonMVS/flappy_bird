@@ -1,41 +1,30 @@
 #version 330 core
 
-layout (location = 0) in vec2 a_pos;
-layout (location = 1) in uint a_glyph_index;
+layout (location = 0) in vec2 a_offset; 
+layout (location = 1) in vec2 a_bound_min;
+layout (location = 2) in vec2 a_bound_max;
+layout (location = 3) in uint a_glyph_index;
 
 out vec2 v_tex_coord;
 
 uniform mat4 u_projection;
-uniform sampler2D u_texture; 
+uniform sampler2D u_texture;
 uniform uint u_glyph_size;
 uniform uint u_glyph_margin;
 
 void main() {
-	gl_Position = u_projection * vec4(a_pos, 0.0, 1.0);
+	vec2 pos = mix(a_bound_min, a_bound_max, a_offset);
+	gl_Position = u_projection * vec4(pos, 0.0, 1.0);
 
-	ivec2 atlas_size_int = textureSize(u_texture, 0);
-	vec2 atlas_size = vec2(atlas_size_int);
-
+	ivec2 atlas_size = textureSize(u_texture, 0);
 	uint glyph_space = u_glyph_size + u_glyph_margin;
-	
-	uint columns = uint(atlas_size_int.x) / glyph_space;
+	uint columns = uint(atlas_size.x) / glyph_space;
 
 	uint col = a_glyph_index % columns;
 	uint row = a_glyph_index / columns;
 
 	vec2 base_pixel = vec2(float(col * glyph_space), float(row * glyph_space));
+	vec2 corrected_offset = vec2(a_offset.x, 1.0 - a_offset.y);
 
-	vec2 uv_offsets[6] = vec2[](
-		vec2(0.0, 0.0),
-		vec2(0.0, 1.0),
-		vec2(1.0, 1.0),
-		vec2(0.0, 0.0),
-		vec2(1.0, 1.0),
-		vec2(1.0, 0.0)
-	);
-
-	int index = gl_VertexID % 6;
-	vec2 offset = uv_offsets[index];
-
-	v_tex_coord = (base_pixel + offset * float(u_glyph_size)) / atlas_size;
+	v_tex_coord = (base_pixel + corrected_offset * float(u_glyph_size)) / vec2(atlas_size);
 }

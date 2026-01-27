@@ -45,8 +45,9 @@ fn main() {
     let font_texture = Font::from_bytes(renderer, include_bytes!("../res/fonts/FreeMono.ttf")).unwrap();
     font_texture.bind_to_unit(0);
 
-    let (vbo, vertices) = font_texture.create_text_vbo(renderer, "abcdefghijklmnopqrstuvwxyz", glm::vec2(0.0, 0.0), 0.15);
-    let vao = VertexArrayObject::new(&[&vbo]);
+    let (vbo, num_glyphs) = font_texture.create_text_vbo(renderer, "abcdefghijklmnopqrstuvwxyz", glm::vec2(0.0, 0.0), 0.15);
+    let base_vbo = font_texture.get_vbo();
+    let vao = VertexArrayObject::new(&[base_vbo, &vbo]);
 
     let font_program = FontProgram::init(renderer).unwrap();
     font_program.bind();
@@ -71,7 +72,7 @@ fn main() {
         let proj_matrix = get_projection_matrix(window);
         font_program.u_projection.set(&proj_matrix);
 
-        vao.draw(vertices as i32, DrawMode::Triangles);
+        vao.draw_instanced(4, num_glyphs as i32, DrawMode::TriangleFan);
 
         window.swap_buffers();
     }
