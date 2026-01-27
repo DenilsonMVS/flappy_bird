@@ -3,23 +3,17 @@ pub mod graphics;
 
 use glfw::{Action, Context, Key, PWindow};
 use nalgebra_glm as glm;
-use vertex_derive::{GlVertex, program_interface};
-use crate::graphics::renderer::{Bindable, BlendFactor, Capability, ClearField, Renderer, buffer::{BufferUsage, VertexBuffer}, drawable::{DrawMode, Drawable}, fonts::Font, program::{Program, ShaderType}, texture::Texture, uniform::Uniform, vertex_array_object::{FieldType, StaticVertexLayout, VertexArrayObject}};
-
-#[repr(C)]
-#[derive(GlVertex)]
-struct Vertex {
-	position: glm::Vec2,
-    texture_coord: glm::Vec2,
-}
+use vertex_derive::{program_interface};
+use crate::graphics::renderer::{Bindable, BlendFactor, Capability, ClearField, Renderer, drawable::{DrawMode, Drawable}, fonts::{Font, PX_RANGE}, program::{Program, ShaderType}, uniform::Uniform, vertex_array_object::VertexArrayObject};
 
 #[program_interface(
-	vert = "../res/shaders/triangle.vert",
-	frag = "../res/shaders/triangle.frag"
+	vert = "../res/shaders/font.vert",
+	frag = "../res/shaders/font.frag"
 )]
-struct TextureProgram {
-	u_texture: i32,
+struct FontProgram {
+    u_texture: i32,
     u_projection: glm::Mat4,
+    u_px_range: f32,
 }
 
 fn get_projection_matrix(window: &PWindow) -> glm::Mat4 {
@@ -42,49 +36,20 @@ fn main() {
     let mut setup = graphics::Graphics::new(glm::U32Vec2::new(800, 600), "Flappy Bird").unwrap();
     let (glfw, window, events, renderer) = setup.get();
 
+    renderer.enable(Capability::Blend);
+    renderer.blend_func(BlendFactor::SrcAlpha, BlendFactor::OneMinusSrcAlpha);
+    renderer.clear_color(&glm::Vec4::new(0.1, 0.2, 0.3, 0.0));
+
     let font_texture = Font::from_bytes(renderer, include_bytes!("../res/fonts/FreeMono.ttf")).unwrap();
     font_texture.bind_to_unit(0);
 
-    renderer.enable(Capability::Blend);
-    renderer.blend_func(BlendFactor::SrcAlpha, BlendFactor::OneMinusSrcAlpha);
-
-    let mut vbo = VertexBuffer::<Vertex>::new(&renderer);
-    vbo.set_data(&[
-        Vertex {
-            position: glm::Vec2::new(-0.5,  0.5),
-            texture_coord: glm::Vec2::new(0.0, 0.0),
-        },
-        Vertex {
-            position: glm::Vec2::new(-0.5, -0.5),
-            texture_coord: glm::Vec2::new(0.0, 1.0),
-        },
-        Vertex {
-            position: glm::Vec2::new( 0.5, -0.5),
-            texture_coord: glm::Vec2::new(1.0, 1.0),
-        },
-        Vertex {
-            position: glm::Vec2::new( 0.5,  0.5),
-            texture_coord: glm::Vec2::new(1.0, 0.0),
-        }
-    ], BufferUsage::StaticDraw);
-
+    let (vbo, vertices) = font_texture.create_text_vbo(renderer, "abcdefghijklmnopqrstuvwxyz", glm::vec2(0.0, 0.0), 0.15);
     let vao = VertexArrayObject::new(&[&vbo]);
-    vao.bind();
 
-    let program = TextureProgram::init(renderer).unwrap();
-    program.bind();
-    program.u_texture.set(&0);
-
-    // let texture = Texture::from_image_bytes(
-    //     renderer,
-    //     include_bytes!("../res/textures/Frame-1.png"),
-    //     graphics::renderer::texture::MagFiltering::Nearest,
-    //     graphics::renderer::texture::MinFiltering::LinearMipmapLinear,
-    //     graphics::renderer::texture::TextureWrap::ClampToEdge
-    // ).unwrap();
-    // texture.bind_to_unit(0);
-
-    renderer.clear_color(&glm::Vec4::new(0.1, 0.2, 0.3, 0.0));
+    let font_program = FontProgram::init(renderer).unwrap();
+    font_program.bind();
+    font_program.u_texture.set(&0);
+    font_program.u_px_range.set(&PX_RANGE);
 
     while !window.should_close() {
         glfw.poll_events();
@@ -99,8 +64,10 @@ fn main() {
 
         renderer.clear(&[ClearField::Color]);
 
-        program.u_projection.set(&get_projection_matrix(window));
-        vao.draw(4, DrawMode::TriangleFan);
+        let proj_matrix = get_projection_matrix(window);
+        font_program.u_projection.set(&proj_matrix);
+
+        vao.draw(vertices as i32, DrawMode::Triangles);
 
         window.swap_buffers();
     }
