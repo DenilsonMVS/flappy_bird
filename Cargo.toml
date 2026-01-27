@@ -6,6 +6,7 @@ edition = "2024"
 [dependencies]
 gl = "0.14.0"
 glfw = "0.61.0"
+image = "0.25.9"
 nalgebra-glm = "0.20.0"
 vertex_derive = { path = "./vertex_derive" }
 

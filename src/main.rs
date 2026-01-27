@@ -1,55 +1,85 @@
 
 pub mod graphics;
 
-use glfw::{Action, Context, Key};
+use glfw::{Action, Context, Key, PWindow};
 use nalgebra_glm as glm;
-use vertex_derive::GlVertex;
-use crate::graphics::renderer::{Bindable, ClearField, buffer::{BufferUsage, IndexBuffer, VertexBuffer}, drawable::{DrawMode, Drawable}, program::{Program, ShaderType}, vertex_array_object::{FieldType, StaticVertexLayout, VertexArrayObject}};
+use vertex_derive::{GlVertex, program_interface};
+use crate::graphics::renderer::{Bindable, BlendFactor, Capability, ClearField, Renderer, buffer::{BufferUsage, VertexBuffer}, drawable::{DrawMode, Drawable}, program::{Program, ShaderType}, texture::Texture, uniform::Uniform, vertex_array_object::{FieldType, StaticVertexLayout, VertexArrayObject}};
 
 #[repr(C)]
 #[derive(GlVertex)]
 struct Vertex {
 	position: glm::Vec2,
-	
-	#[vertex(normalized)]
-	color: glm::U8Vec4,
+    texture_coord: glm::Vec2,
+}
+
+#[program_interface(
+	vert = "../res/shaders/triangle.vert",
+	frag = "../res/shaders/triangle.frag"
+)]
+struct TextureProgram {
+	u_texture: i32,
+    u_projection: glm::Mat4,
+}
+
+fn get_projection_matrix(window: &PWindow) -> glm::Mat4 {
+    let (width, height) = window.get_size();
+    unsafe { gl::Viewport(0, 0, width, height); }
+
+    let ratio = width as f32 / height as f32;
+
+    let projection = if width > height {
+        glm::ortho(-ratio, ratio, -1.0, 1.0, -1.0, 1.0)
+    } else {
+        let inv_ratio = height as f32 / width as f32;
+        glm::ortho(-1.0, 1.0, -inv_ratio, inv_ratio, -1.0, 1.0)
+    };
+
+    return projection;
 }
 
 fn main() {
     let mut setup = graphics::Graphics::new(glm::U32Vec2::new(800, 600), "Flappy Bird").unwrap();
     let (glfw, window, events, renderer) = setup.get();
 
+    renderer.enable(Capability::Blend);
+    renderer.blend_func(BlendFactor::SrcAlpha, BlendFactor::OneMinusSrcAlpha);
+
     let mut vbo = VertexBuffer::<Vertex>::new(&renderer);
     vbo.set_data(&[
-            Vertex {
-                position: glm::Vec2::new( -0.5,  0.5),
-                color: glm::U8Vec4::new(255, 200, 255, 255)
-            },
-            Vertex {
-                position: glm::Vec2::new(-0.5, -0.5),
-                color: glm::U8Vec4::new(255, 255, 255, 255)
-            },
-            Vertex {
-                position: glm::Vec2::new( 0.5, -0.5),
-                color: glm::U8Vec4::new(20, 255, 235, 255)
-            },
-            Vertex {
-                position: glm::Vec2::new( 0.5,  0.5),
-                color: glm::U8Vec4::new(20, 255, 25, 255)
-            }
-        ],
-        BufferUsage::StaticDraw
-    );
+        Vertex {
+            position: glm::Vec2::new(-0.5,  0.5),
+            texture_coord: glm::Vec2::new(0.0, 0.0),
+        },
+        Vertex {
+            position: glm::Vec2::new(-0.5, -0.5),
+            texture_coord: glm::Vec2::new(0.0, 1.0),
+        },
+        Vertex {
+            position: glm::Vec2::new( 0.5, -0.5),
+            texture_coord: glm::Vec2::new(1.0, 1.0),
+        },
+        Vertex {
+            position: glm::Vec2::new( 0.5,  0.5),
+            texture_coord: glm::Vec2::new(1.0, 0.0),
+        }
+    ], BufferUsage::StaticDraw);
 
     let vao = VertexArrayObject::new(&[&vbo]);
     vao.bind();
 
-    let program = Program::new(&renderer, &[
-        (include_str!("../res/shaders/triangle.vert"), ShaderType::Vertex),
-        (include_str!("../res/shaders/triangle.frag"), ShaderType::Fragment)
-    ]).unwrap();
-
+    let program = TextureProgram::init(renderer).unwrap();
     program.bind();
+    program.u_texture.set(&0);
+
+    let texture = Texture::from_image_bytes(
+        renderer,
+        include_bytes!("../res/textures/Frame-1.png"),
+        graphics::renderer::texture::MagFiltering::Nearest,
+        graphics::renderer::texture::MinFiltering::LinearMipmapLinear,
+        graphics::renderer::texture::TextureWrap::ClampToEdge
+    ).unwrap();
+    texture.bind_to_unit(0);
 
     renderer.clear_color(&glm::Vec4::new(0.1, 0.2, 0.3, 0.0));
 
@@ -65,6 +95,8 @@ fn main() {
         }
 
         renderer.clear(&[ClearField::Color]);
+
+        program.u_projection.set(&get_projection_matrix(window));
         vao.draw(4, DrawMode::TriangleFan);
 
         window.swap_buffers();

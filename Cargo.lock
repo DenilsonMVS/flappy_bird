@@ -337,6 +337,7 @@ version = "0.1.0"
 dependencies = [
  "gl",
  "glfw",
+ "image",
  "nalgebra-glm",
  "vertex_derive",
 ]
