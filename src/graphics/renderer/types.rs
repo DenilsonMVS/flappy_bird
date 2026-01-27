@@ -69,3 +69,13 @@ impl GlType for glm::U8Vec4 {
 	const ENUM: GlTypeEnum = GlTypeEnum::UnsignedByte;
     const FIELD_TYPE_SIZE: i32 = 4;
 }
+
+impl GlType for f32 {
+	const ENUM: GlTypeEnum = GlTypeEnum::Float;
+    const FIELD_TYPE_SIZE: i32 = 1;
+}
+
+impl GlType for u32 {
+	const ENUM: GlTypeEnum = GlTypeEnum::UnsignedInt;
+    const FIELD_TYPE_SIZE: i32 = 1;
+}

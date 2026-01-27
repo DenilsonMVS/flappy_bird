@@ -55,14 +55,28 @@ impl<'a> VertexArrayObject<'a> {
             for field in fields {
                 unsafe {
                     gl::EnableVertexAttribArray(attribute);
-                    gl::VertexAttribPointer(
-                        attribute,
-                        field.size,
-                        field.gl_type.to_gl_enum(),
-                        field.normalized as u8,
-                        stride,
-                        current_offset as *const std::ffi::c_void
-                    );
+
+                    match field.gl_type {
+                        GlTypeEnum::Int | GlTypeEnum::UnsignedInt => {
+                            gl::VertexAttribIPointer(
+                                attribute,
+                                field.size,
+                                field.gl_type.to_gl_enum(),
+                                stride,
+                                current_offset as *const std::ffi::c_void
+                            );
+                        }
+                        _ => {
+                            gl::VertexAttribPointer(
+                                attribute,
+                                field.size,
+                                field.gl_type.to_gl_enum(),
+                                field.normalized as u8,
+                                stride,
+                                current_offset as *const std::ffi::c_void
+                            );
+                        }
+                    }
                 }
 
 				current_offset += field.gl_type.get_size() * (field.size as usize);

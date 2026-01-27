@@ -7,13 +7,11 @@ use nalgebra_glm as glm;
 #[repr(C)]
 #[derive(GlVertex)]
 pub struct Vertex {
-	position: glm::Vec2,
-    texture_coord: glm::Vec2,
+    position: glm::Vec2,
+    character_idx: u32,
 }
 
 struct GlyphInfo {
-	uv_min: glm::Vec2,
-	uv_max: glm::Vec2,
     bound_min: glm::Vec2,
     bound_max: glm::Vec2,
 	advance: f32,
@@ -28,8 +26,7 @@ pub struct Font<'a> {
     texture: Texture<'a>,
     glyphs: Vec<Glyph>,
     ascender: f32,
-	descender: f32,
-	_line_gap: f32,
+	descender: f32
 }
 
 fn get_western_iterator() -> impl Iterator<Item = char> {
@@ -38,9 +35,9 @@ fn get_western_iterator() -> impl Iterator<Item = char> {
 		.filter_map(std::char::from_u32)
 }
 
-const GLYPH_SIZE: usize = 31;
-const GLYPYH_MARGIN: usize = 1;
-const SPACE_PER_GLYPH: usize = GLYPH_SIZE + GLYPYH_MARGIN;
+pub const GLYPH_SIZE: usize = 31;
+pub const GLYPYH_MARGIN: usize = 1;
+pub const SPACE_PER_GLYPH: usize = GLYPH_SIZE + GLYPYH_MARGIN;
 
 fn calculate_atlas_dimensions(char_amount: usize) -> (usize, usize) {
     let mut size = 1usize;
@@ -75,7 +72,17 @@ impl<'a> Font<'a> {
             let glyph = font.glyph_index(c).unwrap();
             let mut shape = match font.glyph_shape(glyph) {
                 Some(s) => s,
-                None => continue,
+                None => {
+                    glyphs.push(Glyph {
+                        character: c,
+                        info: GlyphInfo {
+                            bound_min: glm::vec2(0.0, 0.0),
+                            bound_max: glm::vec2(0.0, 0.0),
+                            advance: font.glyph_hor_advance(glyph).unwrap_or(0) as f32,
+                        },
+                    });
+                    continue;
+                },
             };
 
             let bound = shape.get_bound();
@@ -133,8 +140,6 @@ impl<'a> Font<'a> {
             glyphs.push(Glyph {
                 character: c,
                 info: GlyphInfo {
-                    uv_min: glm::vec2(start_x as f32 / atlas_width as f32, start_y as f32 / atlas_height as f32),
-                    uv_max: glm::vec2((start_x + GLYPH_SIZE) as f32 / atlas_width as f32, (start_y + GLYPH_SIZE) as f32 / atlas_height as f32),
                     bound_min: slot_min_font,
                     bound_max: slot_max_font,
                     advance: font.glyph_hor_advance(glyph).unwrap_or(0) as f32,
@@ -149,7 +154,6 @@ impl<'a> Font<'a> {
             glyphs,
             ascender: font.ascender() as f32,
 			descender: font.descender() as f32,
-			_line_gap: font.line_gap() as f32,
         });
     }
 
@@ -181,13 +185,13 @@ impl<'a> Font<'a> {
                 let min_pos = glm::vec2(cursor_x, cursor_y) + info.bound_min * scale;
                 let max_pos = glm::vec2(cursor_x, cursor_y) + info.bound_max * scale;
 
-                vertices.push(Vertex { position: glm::vec2(min_pos.x, max_pos.y), texture_coord: glm::vec2(info.uv_min.x, info.uv_min.y) });
-                vertices.push(Vertex { position: glm::vec2(min_pos.x, min_pos.y), texture_coord: glm::vec2(info.uv_min.x, info.uv_max.y) });
-                vertices.push(Vertex { position: glm::vec2(max_pos.x, min_pos.y), texture_coord: glm::vec2(info.uv_max.x, info.uv_max.y) });
+                vertices.push(Vertex { position: glm::vec2(min_pos.x, max_pos.y), character_idx: idx as u32 });
+                vertices.push(Vertex { position: glm::vec2(min_pos.x, min_pos.y), character_idx: idx as u32 });
+                vertices.push(Vertex { position: glm::vec2(max_pos.x, min_pos.y), character_idx: idx as u32 });
 
-                vertices.push(Vertex { position: glm::vec2(min_pos.x, max_pos.y), texture_coord: glm::vec2(info.uv_min.x, info.uv_min.y) });
-                vertices.push(Vertex { position: glm::vec2(max_pos.x, min_pos.y), texture_coord: glm::vec2(info.uv_max.x, info.uv_max.y) });
-                vertices.push(Vertex { position: glm::vec2(max_pos.x, max_pos.y), texture_coord: glm::vec2(info.uv_max.x, info.uv_min.y) });
+                vertices.push(Vertex { position: glm::vec2(min_pos.x, max_pos.y), character_idx: idx as u32 });
+                vertices.push(Vertex { position: glm::vec2(max_pos.x, min_pos.y), character_idx: idx as u32 });
+                vertices.push(Vertex { position: glm::vec2(max_pos.x, max_pos.y), character_idx: idx as u32 });
 
                 cursor_x += info.advance * scale;
             }

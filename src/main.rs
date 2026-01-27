@@ -4,7 +4,7 @@ pub mod graphics;
 use glfw::{Action, Context, Key, PWindow};
 use nalgebra_glm as glm;
 use vertex_derive::{program_interface};
-use crate::graphics::renderer::{Bindable, BlendFactor, Capability, ClearField, Renderer, drawable::{DrawMode, Drawable}, fonts::{Font, PX_RANGE}, program::{Program, ShaderType}, uniform::Uniform, vertex_array_object::VertexArrayObject};
+use crate::graphics::renderer::{Bindable, BlendFactor, Capability, ClearField, Renderer, drawable::{DrawMode, Drawable}, fonts::{Font, GLYPH_SIZE, GLYPYH_MARGIN, PX_RANGE}, program::{Program, ShaderType}, uniform::Uniform, vertex_array_object::VertexArrayObject};
 
 #[program_interface(
 	vert = "../res/shaders/font.vert",
@@ -14,6 +14,8 @@ struct FontProgram {
     u_texture: i32,
     u_projection: glm::Mat4,
     u_px_range: f32,
+    u_glyph_size: u32,
+    u_glyph_margin: u32,
 }
 
 fn get_projection_matrix(window: &PWindow) -> glm::Mat4 {
@@ -50,6 +52,8 @@ fn main() {
     font_program.bind();
     font_program.u_texture.set(&0);
     font_program.u_px_range.set(&PX_RANGE);
+    font_program.u_glyph_size.set(&(GLYPH_SIZE as u32));
+    font_program.u_glyph_margin.set(&(GLYPYH_MARGIN as u32));
 
     while !window.should_close() {
         glfw.poll_events();

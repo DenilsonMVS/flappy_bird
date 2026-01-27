@@ -35,6 +35,18 @@ impl UniformValue for glm::Mat4 {
 	}
 }
 
+impl UniformValue for glm::UVec2 {
+	fn set_uniform(&self, location: i32) {
+		unsafe { gl::Uniform2ui(location, self[0], self[1]); }
+	}
+}
+
+impl UniformValue for u32 {
+	fn set_uniform(&self, location: i32) {
+		unsafe { gl::Uniform1ui(location, *self); }
+	}
+}
+
 
 pub struct Uniform<T: UniformValue> {
 	location: i32,
