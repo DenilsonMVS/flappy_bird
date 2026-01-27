@@ -142,24 +142,6 @@ impl<'a> Font<'a> {
             });
         }
 
-        let flat_data: &[u8] = unsafe {
-            std::slice::from_raw_parts(
-                raw_image_data.as_ptr() as *const u8,
-                raw_image_data.len() * 3,
-            )
-        };
-
-        // 2. Salvamos o buffer usando a crate image
-        image::save_buffer(
-            "font_atlas_debug.png",
-            flat_data,
-            atlas_width as u32,
-            atlas_height as u32,
-            image::ColorType::Rgb8,
-        ).expect("Falha ao salvar a imagem do atlas");
-
-        println!("Atlas de fonte salvo em font_atlas_debug.png com sucesso!");
-
         let texture = Texture::from_font_raw(renderer, raw_image_data.as_slice(), atlas_width);
         
         return Some(Self {
