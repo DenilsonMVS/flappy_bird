@@ -1,9 +1,11 @@
 
 pub mod graphics;
+pub mod sounds;
 
 use glfw::{Action, Context, Key, PWindow};
 use nalgebra_glm as glm;
-use crate::graphics::renderer::{BlendFactor, Capability, ClearField, fonts::{Fonts}};
+use rodio::Source;
+use crate::{graphics::renderer::{BlendFactor, Capability, ClearField, fonts::Fonts}, sounds::{Sound, Sounds}};
 
 fn get_projection_matrix(window: &PWindow) -> glm::Mat4 {
     let (width, height) = window.get_size();
@@ -21,7 +23,20 @@ fn get_projection_matrix(window: &PWindow) -> glm::Mat4 {
     return projection;
 }
 
+const HOVER: &'static [u8] = include_bytes!("../res/sounds/hover.wav");
+const JUMP: &'static [u8] = include_bytes!("../res/sounds/jump.wav");
+const START: &'static [u8] = include_bytes!("../res/sounds/start.wav");
+
 fn main() {
+    let sounds = Sounds::new().unwrap();
+    let hover = Sound::new(HOVER).unwrap();
+    let jump = Sound::new(JUMP).unwrap();
+    let start = Sound::new(START).unwrap();
+
+    sounds.play(hover.get().amplify(10.0));
+    sounds.play(jump.get().speed(0.5));
+    sounds.play(start.get().delay(std::time::Duration::from_millis(500)));
+
     let mut setup = graphics::Graphics::new(glm::U32Vec2::new(800, 600), "Flappy Bird").unwrap();
     let (glfw, window, events, renderer) = setup.get();
 
