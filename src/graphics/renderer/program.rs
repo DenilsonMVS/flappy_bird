@@ -122,39 +122,3 @@ impl<'a> Drop for Program<'a> {
 		unsafe { gl::DeleteProgram(self.id); }
 	}
 }
-
-pub struct Uniform<T: UniformValue> {
-	location: i32,
-	_marker: PhantomData<T>,
-}
-
-impl<T: UniformValue> Uniform<T> {
-	pub fn new(program: &Program, name: &CStr) -> Option<Self> {
-		let location = unsafe { gl::GetUniformLocation(program.get_id(), name.as_ptr()) };
-		if location == -1 {
-			None
-		} else {
-			Some(Self { location, _marker: PhantomData })
-		}
-	}
-
-	pub fn set(&self, value: &T) {
-		value.set_uniform(self.location);
-	}
-}
-
-pub trait UniformValue {
-	fn set_uniform(&self, location: i32);
-}
-
-impl UniformValue for i32 {
-	fn set_uniform(&self, location: i32) {
-		unsafe { gl::Uniform1i(location, *self); }
-	}
-}
-
-impl UniformValue for f32 {
-	fn set_uniform(&self, location: i32) {
-		unsafe { gl::Uniform1f(location, *self); }
-	}
-}

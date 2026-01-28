@@ -1,7 +1,5 @@
 use proc_macro::TokenStream;
 use quote::quote;
-use proc_macro2::Literal;
-use std::ffi::CString;
 use syn::{
 	Attribute, Data, DeriveInput, Fields, Ident, ItemStruct, LitStr, Token, 
 	parse::{Parse, ParseStream}, parse_macro_input
@@ -90,20 +88,23 @@ pub fn program_interface(args: TokenStream, input: TokenStream) -> TokenStream {
 	// Adiciona o lifetime para o Renderer
 	item_struct.generics.params.push(syn::parse_quote!('a));
 
-	let mut field_names = Vec::new();
+	let mut field_info = Vec::new(); // Armazena (identificador, tipo_original)
+
 	if let Fields::Named(ref mut fields) = item_struct.fields {
-		// O programa interno que detém a posse do ID do OpenGL
-		fields.named.push(syn::parse_quote!(pub program: Program<'a>));
-		
 		for field in fields.named.iter_mut() {
-			let f_ident = field.ident.as_ref().unwrap();
-			if f_ident != "program" {
-				field_names.push(f_ident.clone());
-				let inner_type = &field.ty;
-				field.ty = syn::parse_quote!(Uniform<#inner_type>);
-				field.vis = syn::Visibility::Public(syn::parse_quote!(pub));
-			}
+			let f_ident = field.ident.as_ref().unwrap().clone();
+			let f_ty = field.ty.clone();
+			
+			// Guardamos os tipos originais para os setters
+			field_info.push((f_ident, f_ty));
+			
+			// Transformamos o campo da struct em um i32 (location)
+			field.ty = syn::parse_quote!(i32);
+			field.vis = syn::Visibility::Public(syn::parse_quote!(pub));
 		}
+
+		// Adiciona o programa interno (posse do ID OpenGL)
+		fields.named.push(syn::parse_quote!(pub program: Program<'a>));
 	}
 
 	let shader_inits = shader_args.args.iter().map(|(kind, path)| {
@@ -116,7 +117,6 @@ pub fn program_interface(args: TokenStream, input: TokenStream) -> TokenStream {
 			"tese" => quote!(ShaderType::TesselationEvaluation),
 			_ => panic!("Tipo de shader desconhecido: {}", kind),
 		};
-		// concat! com \0 garante &CStr estático sem alocação em runtime
 		quote! {
 			(
 				unsafe { std::ffi::CStr::from_ptr(concat!(include_str!(#path), "\0").as_ptr() as *const i8) },
@@ -125,16 +125,27 @@ pub fn program_interface(args: TokenStream, input: TokenStream) -> TokenStream {
 		}
 	});
 
-	let field_initializers = field_names.iter().map(|f| {
+	// Inicializa as localizações dos uniforms
+	let field_initializers = field_info.iter().map(|(f, _)| {
 		let f_str = f.to_string();
-		let c_str_value = CString::new(f_str.clone()).expect("Erro ao converter nome do uniform");
-		let c_name = Literal::c_string(&c_str_value);
-		
 		quote! {
-			let #f = Uniform::new(&program, #c_name)
-				.ok_or_else(|| format!("Uniform não encontrado: {}", #f_str))?;
+			let #f = unsafe {
+				gl::GetUniformLocation(program.get_id(), concat!(#f_str, "\0").as_ptr() as *const i8)
+			};
 		}
 	});
+
+	// Gera os setters tipados usando DSA (glProgramUniform)
+	let setters = field_info.iter().map(|(f, ty)| {
+		let setter_name = Ident::new(&format!("set_{}", f), f.span());
+		quote! {
+			pub fn #setter_name(&self, value: &#ty) {
+				UniformValue::set_program_uniform(value, self.program.get_id(), self.#f);
+			}
+		}
+	});
+
+	let field_names: Vec<_> = field_info.iter().map(|(f, _)| f).collect();
 
 	let expanded = quote! {
 		#item_struct
@@ -151,6 +162,12 @@ pub fn program_interface(args: TokenStream, input: TokenStream) -> TokenStream {
 					#(#field_names,)*
 					program,
 				})
+			}
+
+			#(#setters)*
+
+			pub fn bind(&self) {
+				self.program.bind();
 			}
 		}
 

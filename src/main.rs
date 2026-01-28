@@ -3,20 +3,7 @@ pub mod graphics;
 
 use glfw::{Action, Context, Key, PWindow};
 use nalgebra_glm as glm;
-use vertex_derive::{program_interface};
-use crate::graphics::renderer::{Bindable, BlendFactor, Capability, ClearField, Renderer, drawable::{DrawMode, Drawable}, fonts::{Font, GLYPH_SIZE, GLYPYH_MARGIN, PX_RANGE}, program::{Program, ShaderType}, uniform::Uniform, vertex_array_object::VertexArrayObject};
-
-#[program_interface(
-	vert = "../res/shaders/font.vert",
-	frag = "../res/shaders/font.frag"
-)]
-struct FontProgram {
-    u_texture: i32,
-    u_projection: glm::Mat4,
-    u_px_range: f32,
-    u_glyph_size: u32,
-    u_glyph_margin: u32,
-}
+use crate::graphics::renderer::{BlendFactor, Capability, ClearField, fonts::{Fonts}};
 
 fn get_projection_matrix(window: &PWindow) -> glm::Mat4 {
     let (width, height) = window.get_size();
@@ -42,19 +29,9 @@ fn main() {
     renderer.blend_func(BlendFactor::SrcAlpha, BlendFactor::OneMinusSrcAlpha);
     renderer.clear_color(&glm::Vec4::new(0.1, 0.2, 0.3, 0.0));
 
-    let font_texture = Font::from_bytes(renderer, include_bytes!("../res/fonts/FreeMono.ttf")).unwrap();
-    font_texture.bind_to_unit(0);
-
-    let (vbo, num_glyphs) = font_texture.create_text_vbo(renderer, "abcdefghijklmnopqrstuvwxyz", glm::vec2(0.0, 0.0), 0.15);
-    let base_vbo = font_texture.get_vbo();
-    let vao = VertexArrayObject::new(&[base_vbo, &vbo]);
-
-    let font_program = FontProgram::init(renderer).unwrap();
-    font_program.bind();
-    font_program.u_texture.set(&0);
-    font_program.u_px_range.set(&PX_RANGE);
-    font_program.u_glyph_size.set(&(GLYPH_SIZE as u32));
-    font_program.u_glyph_margin.set(&(GLYPYH_MARGIN as u32));
+    let fonts = Fonts::new(renderer);
+    let free_mono = fonts.new_font(renderer, include_bytes!("../res/fonts/FreeMono.ttf")).unwrap();
+    let draw_buffer = free_mono.create_text_vbo(renderer, &fonts, "abcdefghijklmnopqrstuvwxyz", glm::vec2(0.0, 0.0), 0.15);
 
     while !window.should_close() {
         glfw.poll_events();
@@ -70,9 +47,7 @@ fn main() {
         renderer.clear(&[ClearField::Color]);
 
         let proj_matrix = get_projection_matrix(window);
-        font_program.u_projection.set(&proj_matrix);
-
-        vao.draw_instanced(4, num_glyphs as i32, DrawMode::TriangleFan);
+        fonts.draw_buffer(&draw_buffer, &proj_matrix);
 
         window.swap_buffers();
     }

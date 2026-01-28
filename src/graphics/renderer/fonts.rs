@@ -1,7 +1,10 @@
+use std::marker::PhantomData;
+
 use msdfgen::{Bitmap, FillRule, FontExt, MsdfGeneratorConfig, Vector2};
+use ouroboros::self_referencing;
 use ttf_parser::Face;
-use vertex_derive::GlVertex;
-use crate::graphics::renderer::{Renderer, buffer::{BufferUsage, VertexBuffer}, texture::Texture, vertex_array_object::{FieldType, StaticVertexLayout}};
+use vertex_derive::{GlVertex, program_interface};
+use crate::graphics::renderer::{Bindable, Renderer, buffer::{BufferUsage, VertexBuffer}, drawable::DrawMode, program::{Program, ShaderType}, texture::Texture, uniform::UniformValue, vertex_array_object::{FieldType, StaticVertexLayout, VertexArrayObject}};
 use nalgebra_glm as glm;
 
 #[repr(C)]
@@ -29,9 +32,83 @@ struct Glyph {
 	info: GlyphInfo,
 }
 
+#[program_interface(
+	vert = "../../../res/shaders/font.vert",
+	frag = "../../../res/shaders/font.frag"
+)]
+struct FontProgram {
+    u_texture: i32,
+    u_projection: glm::Mat4,
+    u_px_range: f32,
+    u_glyph_size: u32,
+    u_glyph_margin: u32,
+}
+
+pub struct Fonts<'a> {
+    font_program: FontProgram<'a>,
+    base_vbo: VertexBuffer<'a, BaseFormat>,
+    _marker: PhantomData<&'a Renderer>,
+}
+
+impl<'a> Fonts<'a>  {
+    pub fn new(renderer: &'a Renderer) -> Self {
+        let font_program = FontProgram::init(renderer).unwrap();
+        font_program.bind();
+        font_program.set_u_texture(&0);
+        font_program.set_u_px_range(&PX_RANGE);
+        font_program.set_u_glyph_size(&(GLYPH_SIZE as u32));
+        font_program.set_u_glyph_margin(&(GLYPYH_MARGIN as u32));
+
+        let mut base_vbo = VertexBuffer::new(renderer);
+        base_vbo.set_data(&[
+            BaseFormat { offsets: glm::vec2(0.0, 0.0) },
+            BaseFormat { offsets: glm::vec2(0.0, 1.0) },
+            BaseFormat { offsets: glm::vec2(1.0, 1.0) },
+            BaseFormat { offsets: glm::vec2(1.0, 0.0) },
+        ], BufferUsage::StaticDraw);
+
+        return Self {
+            font_program,
+            base_vbo,
+            _marker: PhantomData
+        };
+    }
+
+    pub fn new_font(&self, renderer: &'a Renderer, bytes: &[u8]) -> Option<Font<'a>> {
+        Font::from_bytes(renderer, bytes)
+    }
+
+    fn get_base_vbo(&self) -> &VertexBuffer<'a, BaseFormat> {
+        &self.base_vbo
+    }
+
+    pub fn draw_buffer(&self, buffer: &FontVbo, proj_matrix: &glm::Mat4) {
+        self.font_program.bind();
+        self.font_program.set_u_projection(proj_matrix);
+
+        buffer.borrow_texture().bind_to_unit(0);
+
+        let vao = buffer.borrow_vao();
+        let amount = buffer.borrow_amount();
+        vao.draw_instanced(4, *amount, DrawMode::TriangleFan);
+    }
+}
+
+#[self_referencing]
+pub struct FontVbo<'a> {
+    vbo: VertexBuffer<'a, GlyphAttrs>,
+
+    #[borrows(vbo)]
+	#[covariant]
+    vao: VertexArrayObject<'this>,
+
+    amount: i32,
+
+    texture: &'a Texture<'a>,
+}
+
 pub struct Font<'a> {
     texture: Texture<'a>,
-    base_vbo: VertexBuffer<'a, BaseFormat>,
     glyphs: Vec<Glyph>,
     ascender: f32,
 	descender: f32
@@ -60,7 +137,7 @@ fn calculate_atlas_dimensions(char_amount: usize) -> (usize, usize) {
 pub const PX_RANGE: f32 = 4.0;
 
 impl<'a> Font<'a> {
-    pub fn from_bytes(renderer: &'a Renderer, bytes: &[u8]) -> Option<Self> {
+    fn from_bytes(renderer: &'a Renderer, bytes: &[u8]) -> Option<Self> {
         let font = Face::parse(bytes, 0).ok()?;
 
         let amount_supported_characters = get_western_iterator()
@@ -156,32 +233,20 @@ impl<'a> Font<'a> {
         }
 
         let texture = Texture::from_font_raw(renderer, raw_image_data.as_slice(), atlas_width);
-        let mut base_vbo = VertexBuffer::new(renderer);
-        base_vbo.set_data(&[
-            BaseFormat { offsets: glm::vec2(0.0, 0.0) },
-            BaseFormat { offsets: glm::vec2(0.0, 1.0) },
-            BaseFormat { offsets: glm::vec2(1.0, 1.0) },
-            BaseFormat { offsets: glm::vec2(1.0, 0.0) },
-        ], BufferUsage::StaticDraw);
 
         return Some(Self {
             texture,
-            base_vbo,
             glyphs,
             ascender: font.ascender() as f32,
 			descender: font.descender() as f32,
         });
     }
 
-    pub fn get_vbo(&'a self) -> &'a VertexBuffer<'a, BaseFormat> {
-        &self.base_vbo
-    }
-
     pub fn bind_to_unit(&self, unit: u32) {
         self.texture.bind_to_unit(unit);
     }
 
-    pub fn create_text_vbo<'b>(&self, renderer: &'b Renderer, text: &str, center: glm::Vec2, line_height: f32) -> (VertexBuffer<'b, GlyphAttrs>, usize) {
+    pub fn create_text_vbo(&'a self, renderer: &'a Renderer, fonts: &'a Fonts, text: &str, center: glm::Vec2, line_height: f32) -> FontVbo<'a> {
         let mut glyph_buffer_data = Vec::with_capacity(text.len());
 
         let total_width = text.chars().fold(0.0f32, |acc, c|
@@ -219,6 +284,15 @@ impl<'a> Font<'a> {
             .set_instanced(1);
         vbo.set_data(&glyph_buffer_data, BufferUsage::StaticDraw);
 
-        (vbo, glyph_buffer_data.len())
+        let base_vbo = fonts.get_base_vbo();
+
+        return FontVboBuilder {
+            vbo,
+            vao_builder: |vbo_ref| {
+                VertexArrayObject::new(&[base_vbo, vbo_ref])
+            },
+            amount: glyph_buffer_data.len() as i32,
+            texture: &self.texture
+        }.build();
     }
 }

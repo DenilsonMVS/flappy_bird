@@ -15,6 +15,8 @@ pub trait Bindable {
 
 trait GlEnum: Sized {
     fn to_gl_enum(&self) -> u32;
+
+	#[allow(dead_code)]
     fn from_gl_enum(value: u32) -> Option<Self>;
 }
 
