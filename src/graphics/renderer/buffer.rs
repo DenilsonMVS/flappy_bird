@@ -76,6 +76,18 @@ impl<'a, T: StaticVertexLayout> VertexBuffer<'a, T> {
 		return self;
 	}
 
+    pub fn reserve_data(&mut self, amount: usize, usage: BufferUsage) {
+        self.bind();
+        unsafe {
+            gl::BufferData(
+                gl::ARRAY_BUFFER,
+                (amount * std::mem::size_of::<T>()) as isize,
+                null(),
+                usage.to_gl_enum()
+            );
+        }
+    }
+
     pub fn set_data(&mut self, data: &[T], usage: BufferUsage) {
         self.bind();
         unsafe {

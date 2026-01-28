@@ -11,7 +11,6 @@ msdfgen = "0.2.1"
 ttf-parser = "0.18.1"
 nalgebra-glm = "0.20.0"
 vertex_derive = { path = "./vertex_derive" }
-ouroboros = "0.18.5"
 rodio = "0.21.1"
 
 [workspace]

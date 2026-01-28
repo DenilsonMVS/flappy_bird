@@ -1,6 +1,6 @@
 use std::{marker::PhantomData};
 
-use crate::graphics::renderer::{Bindable, GlEnum, buffer::BindableLayout, drawable::{DrawMode, Drawable}, types::{GlType, GlTypeEnum}};
+use crate::graphics::renderer::{Bindable, GlEnum, Renderer, buffer::BindableLayout, drawable::{DrawMode, Drawable}, types::{GlType, GlTypeEnum}};
 
 
 pub struct FieldType {
@@ -34,11 +34,11 @@ pub trait VertexLayout {
 
 pub struct VertexArrayObject<'a> {
     id: u32,
-    _marker: PhantomData<&'a dyn BindableLayout>,
+    _marker: PhantomData<&'a Renderer>,
 }
 
 impl<'a> VertexArrayObject<'a> {
-    pub fn new(buffers: &[&'a dyn BindableLayout]) -> Self {
+    pub fn new(_renderer: &'a Renderer, buffers: &[& dyn BindableLayout]) -> Self {
         let mut id: u32 = 0u32;
         unsafe {
             gl::GenVertexArrays(1, &mut id);

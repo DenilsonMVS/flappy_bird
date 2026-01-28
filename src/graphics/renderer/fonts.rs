@@ -1,7 +1,6 @@
 use std::marker::PhantomData;
 
 use msdfgen::{Bitmap, FillRule, FontExt, MsdfGeneratorConfig, Vector2};
-use ouroboros::self_referencing;
 use ttf_parser::Face;
 use vertex_derive::{GlVertex, program_interface};
 use crate::graphics::renderer::{Bindable, Renderer, buffer::{BufferUsage, VertexBuffer}, drawable::DrawMode, program::{Program, ShaderType}, texture::Texture, uniform::UniformValue, vertex_array_object::{FieldType, StaticVertexLayout, VertexArrayObject}};
@@ -71,25 +70,15 @@ impl<'a> Fonts<'a>  {
     pub fn draw_buffer(&self, buffer: &FontVbo, proj_matrix: &glm::Mat4) {
         self.font_program.bind();
         self.font_program.set_u_projection(proj_matrix);
-
-        buffer.borrow_texture().bind_to_unit(0);
-
-        let vao = buffer.borrow_vao();
-        let amount = buffer.borrow_amount();
-        vao.draw_instanced(4, *amount, DrawMode::TriangleFan);
+        buffer.texture.bind_to_unit(0);
+        buffer.vao.draw_instanced(4, buffer.amount, DrawMode::TriangleFan);
     }
 }
 
-#[self_referencing]
 pub struct FontVbo<'a> {
-    vbo: VertexBuffer<'a, GlyphAttrs>,
-
-    #[borrows(vbo)]
-	#[covariant]
-    vao: VertexArrayObject<'this>,
-
+    _vbo: VertexBuffer<'a, GlyphAttrs>,
+    vao: VertexArrayObject<'a>,
     amount: i32,
-
     texture: &'a Texture<'a>,
 }
 
@@ -329,13 +318,13 @@ impl<'a> Font<'a> {
             .set_instanced(1);
         vbo.set_data(&glyph_buffer_data, BufferUsage::StaticDraw);
 
-        return FontVboBuilder {
-            vbo,
-            vao_builder: |vbo_ref| {
-                VertexArrayObject::new(&[vbo_ref])
-            },
+        let vao = VertexArrayObject::new(renderer, &[&vbo]);
+        
+        return FontVbo {
+            _vbo: vbo,
+            vao,
             amount: glyph_buffer_data.len() as i32,
             texture: &self.texture
-        }.build();
+        };
     }
 }
