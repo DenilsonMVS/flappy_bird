@@ -5,7 +5,7 @@ pub mod sounds;
 use glfw::{Action, Context, Key, PWindow};
 use nalgebra_glm as glm;
 use rodio::Source;
-use crate::{graphics::renderer::{BlendFactor, Capability, ClearField, fonts::Fonts}, sounds::{Sound, Sounds}};
+use crate::{graphics::renderer::{BlendFactor, Capability, ClearField, fonts::{Fonts, PositionMode, TextRenderConfig}}, sounds::{Sound, Sounds}};
 
 fn get_projection_matrix(window: &PWindow) -> glm::Mat4 {
     let (width, height) = window.get_size();
@@ -46,7 +46,23 @@ fn main() {
 
     let fonts = Fonts::new(renderer);
     let free_mono = fonts.new_font(renderer, include_bytes!("../res/fonts/FreeMono.ttf")).unwrap();
-    let draw_buffer = free_mono.create_text_vbo(renderer, &fonts, "abcdefghijklmnopqrstuvwxyz", glm::vec2(0.0, 0.0), 0.15);
+    let draw_buffer = free_mono.create_text_vbo(renderer, &[
+        TextRenderConfig::new(
+            "abcdefghijklmnopqrtuvwxyz",
+            glm::vec2(0.0, 0.0),
+            0.08
+        ),
+        TextRenderConfig::new(
+            "0123456789",
+            glm::vec2(-1.0, 1.0),
+            0.1
+        ).with_mode(PositionMode::TopLeft),
+        TextRenderConfig::new(
+            "ABCDEFGHIJKLMNOPQRSTUVWXYZ",
+            glm::vec2(1.0, -1.0),
+            0.08
+        ).with_mode(PositionMode::BottomRight),
+    ]);
 
     while !window.should_close() {
         glfw.poll_events();
