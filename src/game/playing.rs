@@ -72,7 +72,6 @@ struct TextureProgram {
 
 #[repr(C)]
 #[derive(GlVertex)]
-#[vertex(divisor = 0)]
 struct TextureVertex {
     position: glm::Vec2,
     tex_coord: glm::Vec2,

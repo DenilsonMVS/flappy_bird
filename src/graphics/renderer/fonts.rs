@@ -8,17 +8,11 @@ use nalgebra_glm as glm;
 
 #[repr(C)]
 #[derive(GlVertex)]
+#[vertex(divisor = 4)]
 pub struct GlyphAttrs {
     bound_min: glm::Vec2,
     bound_max: glm::Vec2,
     character_idx: u32,
-}
-
-#[repr(C)]
-#[derive(GlVertex)]
-#[vertex(divisor = 4)]
-pub struct BaseFormat {
-    offsets: glm::Vec2,
 }
 
 struct GlyphInfo {

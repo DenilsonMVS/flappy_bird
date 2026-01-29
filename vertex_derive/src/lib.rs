@@ -23,13 +23,17 @@ pub fn static_vertex_layout_derive(input: TokenStream) -> TokenStream {
     };
 
     let field_definitions = fields.iter().map(|f| {
-        let ty = &f.ty;
-        let is_normalized = has_normalized_attr(&f.attrs);
-        
-        quote! {
-            FieldType::new::<#ty>(#is_normalized)
-        }
-    });
+		let field_name = &f.ident;
+		let ty = &f.ty;
+		let is_normalized = has_normalized_attr(&f.attrs);
+		
+		quote! {
+			FieldType::new::<#ty>(
+				#is_normalized,
+				core::mem::offset_of!(#name, #field_name) as u32
+			)
+		}
+	});
 
     let expanded = quote! {
         impl StaticVertexLayout for #name {

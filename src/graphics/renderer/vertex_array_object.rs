@@ -4,17 +4,19 @@ use crate::graphics::renderer::{GlEnum, Renderer, buffer::GenericBuffer, drawabl
 
 
 pub struct FieldType {
-    normalized: bool,
-    gl_type: GlTypeEnum,
-    size: i32,
+    pub gl_type: GlTypeEnum,
+    pub size: i32,
+    pub normalized: bool,
+    pub offset: u32,
 }
 
 impl FieldType {
-    pub const fn new<T: GlType>(normalized: bool) -> Self {
+    pub const fn new<T: GlType>(normalized: bool, offset: u32) -> Self {
         Self {
             normalized,
             size: T::FIELD_TYPE_SIZE,
-            gl_type: T::ENUM
+            gl_type: T::ENUM,
+            offset,
         }
     }
 }
@@ -51,7 +53,6 @@ impl<'a> VertexArrayObject<'a> {
             let fields = buffer.get_fields();
             let stride = buffer.get_stride();
             let divisor = buffer.get_divisor();
-            let mut relative_offset = 0u32;
 
             unsafe {
                 gl::VertexArrayVertexBuffer(
@@ -76,7 +77,7 @@ impl<'a> VertexArrayObject<'a> {
                                 attribute_index,
                                 field.size,
                                 field.gl_type.to_gl_enum(),
-                                relative_offset
+                                field.offset
                             );
                         }
                         _ => {
@@ -86,7 +87,7 @@ impl<'a> VertexArrayObject<'a> {
                                 field.size,
                                 field.gl_type.to_gl_enum(),
                                 field.normalized as u8,
-                                relative_offset
+                                field.offset
                             );
                         }
                     }
@@ -94,7 +95,6 @@ impl<'a> VertexArrayObject<'a> {
                     gl::VertexArrayAttribBinding(id, attribute_index, binding_index);
                 }
 
-                relative_offset += (field.gl_type.get_size() * (field.size as usize)) as u32;
                 attribute_index += 1;
             }
         }
