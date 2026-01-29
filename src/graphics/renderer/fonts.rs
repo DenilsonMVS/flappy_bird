@@ -8,7 +8,7 @@ use nalgebra_glm as glm;
 
 #[repr(C)]
 #[derive(GlVertex)]
-#[vertex(divisor = 4)]
+#[vertex(divisor = 1)]
 pub struct GlyphAttrs {
     bound_min: glm::Vec2,
     bound_max: glm::Vec2,
