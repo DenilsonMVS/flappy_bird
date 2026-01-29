@@ -9,10 +9,6 @@ pub mod texture;
 pub mod uniform;
 pub mod fonts;
 
-pub trait Bindable {
-    fn bind(&self);
-}
-
 trait GlEnum: Sized {
     fn to_gl_enum(&self) -> u32;
 

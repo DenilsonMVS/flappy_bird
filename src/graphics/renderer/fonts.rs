@@ -3,7 +3,7 @@ use std::marker::PhantomData;
 use msdfgen::{Bitmap, FillRule, FontExt, MsdfGeneratorConfig, Vector2};
 use ttf_parser::Face;
 use vertex_derive::{GlVertex, program_interface};
-use crate::graphics::renderer::{Bindable, Renderer, buffer::{BufferUsage, VertexBuffer}, drawable::DrawMode, program::{Program, ShaderType}, texture::Texture, uniform::UniformValue, vertex_array_object::{FieldType, StaticVertexLayout, VertexArrayObject}};
+use crate::graphics::renderer::{Renderer, buffer::{self, Buffer, Static}, drawable::DrawMode, program::{Program, ShaderType}, texture::Texture, uniform::UniformValue, vertex_array_object::{FieldType, StaticVertexLayout, VertexArrayObject}};
 use nalgebra_glm as glm;
 
 #[repr(C)]
@@ -76,7 +76,7 @@ impl<'a> Fonts<'a>  {
 }
 
 pub struct FontVbo<'a> {
-    _vbo: VertexBuffer<'a, GlyphAttrs>,
+    _vbo: Buffer<'a, GlyphAttrs, buffer::Static>,
     vao: VertexArrayObject<'a>,
     amount: i32,
     texture: &'a Texture<'a>,
@@ -314,10 +314,7 @@ impl<'a> Font<'a> {
             }
         }
 
-        let mut vbo = VertexBuffer::new(renderer)
-            .set_instanced(1);
-        vbo.set_data(&glyph_buffer_data, BufferUsage::StaticDraw);
-
+        let vbo = Buffer::<GlyphAttrs, Static>::new(renderer, &glyph_buffer_data).set_divisor(1);
         let vao = VertexArrayObject::new(renderer, &[&vbo]);
         
         return FontVbo {

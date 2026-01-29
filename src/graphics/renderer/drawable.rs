@@ -1,4 +1,4 @@
-use crate::graphics::renderer::{Bindable, GlEnum};
+use crate::graphics::renderer::GlEnum;
 
 
 pub enum DrawMode {
@@ -36,8 +36,4 @@ impl GlEnum for DrawMode {
 			Self::Triangles     => gl::TRIANGLES,
 		}
 	}
-}
-
-pub trait Drawable: Bindable {
-    fn draw(&self, count: i32, draw_mode: DrawMode);
 }

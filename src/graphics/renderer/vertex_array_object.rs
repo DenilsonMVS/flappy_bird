@@ -1,6 +1,6 @@
 use std::{marker::PhantomData};
 
-use crate::graphics::renderer::{Bindable, GlEnum, Renderer, buffer::BindableLayout, drawable::{DrawMode, Drawable}, types::{GlType, GlTypeEnum}};
+use crate::graphics::renderer::{GlEnum, Renderer, buffer::GenericBuffer, drawable::DrawMode, types::{GlType, GlTypeEnum}};
 
 
 pub struct FieldType {
@@ -38,55 +38,63 @@ pub struct VertexArrayObject<'a> {
 }
 
 impl<'a> VertexArrayObject<'a> {
-    pub fn new(_renderer: &'a Renderer, buffers: &[& dyn BindableLayout]) -> Self {
+    pub fn new(_renderer: &'a Renderer, buffers: &[& (dyn GenericBuffer + 'a)]) -> Self {
         let mut id: u32 = 0u32;
         unsafe {
-            gl::GenVertexArrays(1, &mut id);
-            gl::BindVertexArray(id); 
+            gl::CreateVertexArrays(1, &mut id);
         }
 
-        let mut attribute = 0;
-
-        for buffer in buffers {
-            buffer.bind();
+        let mut attribute_index = 0;
+        for (binding_index, buffer) in buffers.iter().enumerate() {
+            let binding_index = binding_index as u32;
             let fields = buffer.get_fields();
             let stride = buffer.get_stride();
             let divisor = buffer.get_divisor();
-            let mut current_offset = 0usize;
+            let mut relative_offset = 0u32;
+
+            unsafe {
+                gl::VertexArrayVertexBuffer(
+                    id,
+                    binding_index,
+                    buffer.get_id(),
+                    0,
+                    stride as i32
+                );
+
+                gl::VertexArrayBindingDivisor(id, binding_index, divisor);
+            }
 
             for field in fields {
                 unsafe {
-                    gl::EnableVertexAttribArray(attribute);
+                    gl::EnableVertexArrayAttrib(id, attribute_index);
 
                     match field.gl_type {
                         GlTypeEnum::Int | GlTypeEnum::UnsignedInt => {
-                            gl::VertexAttribIPointer(
-                                attribute,
+                            gl::VertexArrayAttribIFormat(
+                                id,
+                                attribute_index,
                                 field.size,
                                 field.gl_type.to_gl_enum(),
-                                stride,
-                                current_offset as *const std::ffi::c_void
+                                relative_offset
                             );
                         }
                         _ => {
-                            gl::VertexAttribPointer(
-                                attribute,
+                            gl::VertexArrayAttribFormat(
+                                id,
+                                attribute_index,
                                 field.size,
                                 field.gl_type.to_gl_enum(),
                                 field.normalized as u8,
-                                stride,
-                                current_offset as *const std::ffi::c_void
+                                relative_offset
                             );
                         }
                     }
 
-                    if divisor > 0 {
-                        gl::VertexAttribDivisor(attribute, divisor);
-                    }
+                    gl::VertexArrayAttribBinding(id, attribute_index, binding_index);
                 }
 
-				current_offset += field.gl_type.get_size() * (field.size as usize);
-                attribute += 1;
+                relative_offset += (field.gl_type.get_size() * (field.size as usize)) as u32;
+                attribute_index += 1;
             }
         }
 
@@ -94,8 +102,8 @@ impl<'a> VertexArrayObject<'a> {
     }
 
     pub fn draw_instanced(&self, vertex_count: i32, instance_count: i32, draw_mode: DrawMode) {
-		self.bind();
 		unsafe {
+            gl::BindVertexArray(self.id);
 			gl::DrawArraysInstanced(
 				draw_mode.to_gl_enum(),
 				0,
@@ -104,20 +112,15 @@ impl<'a> VertexArrayObject<'a> {
 			);
 		}
 	}
-}
 
-impl<'a> Bindable for VertexArrayObject<'a> {
-    fn bind(&self) {
+    pub fn draw(&self, vertex_count: i32, draw_mode: DrawMode) {
         unsafe {
-            gl::BindVertexArray(self.id);
-        }
-    }
-}
-
-impl<'a> Drawable for VertexArrayObject<'a> {
-    fn draw(&self, count: i32, draw_mode: DrawMode) {
-        unsafe {
-            gl::DrawArrays(draw_mode.to_gl_enum(), 0, count);
+            gl::BindVertexArray(self.id);            
+            gl::DrawArrays(
+                draw_mode.to_gl_enum(),
+                0,
+                vertex_count
+            );
         }
     }
 }

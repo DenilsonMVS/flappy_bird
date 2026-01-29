@@ -71,7 +71,7 @@ impl Graphics {
         GRAPHICS_INITIALIZED.compare_exchange(false, true, Ordering::SeqCst, Ordering::SeqCst).ok()?;
         
         let mut glfw = glfw::init(fail_on_errors!()).ok()?;
-        glfw.window_hint(glfw::WindowHint::ContextVersion(4, 3));
+        glfw.window_hint(glfw::WindowHint::ContextVersion(4, 6));
         glfw.window_hint(glfw::WindowHint::OpenGlProfile(glfw::OpenGlProfileHint::Core));
         glfw.window_hint(glfw::WindowHint::OpenGlForwardCompat(true));
         glfw.window_hint(glfw::WindowHint::OpenGlDebugContext(true));

@@ -1,7 +1,7 @@
 
-use std::{hint::unreachable_unchecked, time};
+use std::time;
 
-use crate::{game::scene::Scene, graphics::renderer::{Bindable, BlendFactor, Capability, ClearField, Renderer, buffer::{BufferUsage, VertexBuffer}, drawable::{DrawMode, Drawable}, program::{Program, ShaderType}, texture::{MagFiltering, MinFiltering, Texture, TextureWrap}, uniform::UniformValue, vertex_array_object::{FieldType, StaticVertexLayout, VertexArrayObject}}};
+use crate::{game::scene::Scene, graphics::renderer::{BlendFactor, Capability, ClearField, Renderer, buffer::{Buffer, Dynamic}, drawable::DrawMode, program::{Program, ShaderType}, texture::{MagFiltering, MinFiltering, Texture, TextureWrap}, uniform::UniformValue, vertex_array_object::{FieldType, StaticVertexLayout, VertexArrayObject}}};
 use glfw::{Action, Glfw, GlfwReceiver, Key, WindowEvent};
 use nalgebra_glm as glm;
 use vertex_derive::{GlVertex, program_interface};
@@ -56,7 +56,7 @@ impl BirdFlyState {
             1 | 4 => sum_diffs(glm::vec2(0.5, 0.0)),
             2 => sum_diffs(glm::vec2(0.0, 0.5)),
             3 => sum_diffs(glm::vec2(0.5, 0.5)),
-            _ => unsafe { unreachable_unchecked() }
+            _ => unreachable!(),
         }
     }
 }
@@ -81,7 +81,7 @@ pub struct Playing<'a> {
     position: glm::Vec2,
     vertical_speed: f32,
     atlas: Texture<'a>,
-    vbo: VertexBuffer<'a, TextureVertex>,
+    vbo: Buffer<'a, TextureVertex, Dynamic>,
     vao: VertexArrayObject<'a>,
     program: TextureProgram<'a>,
     bird_fly_state: BirdFlyState,
@@ -102,9 +102,7 @@ impl<'a> Playing<'a> {
             TextureWrap::ClampToBorder
         ).unwrap();
 
-        let mut vbo = VertexBuffer::new(renderer);
-        vbo.reserve_data(4, BufferUsage::StreamDraw);
-
+        let vbo = Buffer::<TextureVertex, Dynamic>::new(renderer, 4);
         let vao = VertexArrayObject::new(renderer, &[&vbo]);
         let program = TextureProgram::init(renderer).unwrap();
         program.set_u_texture(&0);

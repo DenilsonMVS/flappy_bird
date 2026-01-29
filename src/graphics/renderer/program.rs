@@ -1,6 +1,6 @@
 use std::ffi::CStr;
 use std::marker::PhantomData;
-use crate::graphics::renderer::{Bindable, GlEnum, Renderer};
+use crate::graphics::renderer::{GlEnum, Renderer};
 
 pub enum ShaderType {
 	Vertex,
@@ -109,10 +109,8 @@ impl<'a> Program<'a> {
 	pub fn get_id(&self) -> u32 {
 		self.id
 	}
-}
 
-impl<'a> Bindable for Program<'a> {
-	fn bind(&self) {
+	pub fn bind(&self) {
 		unsafe { gl::UseProgram(self.id); }
 	}
 }

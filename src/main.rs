@@ -5,10 +5,9 @@ pub mod game;
 
 use std::time;
 
-use glfw::{Action, Context, Key, PWindow};
+use glfw::{Context, PWindow};
 use nalgebra_glm as glm;
-use rodio::Source;
-use crate::{game::{playing::Playing, scene::Scene}, graphics::renderer::{BlendFactor, Capability, ClearField, fonts::{Fonts, PositionMode, TextRenderConfig}}, sounds::{Sound, Sounds}};
+use crate::{game::{playing::Playing, scene::Scene}};
 
 fn get_projection_matrix(window: &PWindow) -> glm::Mat4 {
     let (width, height) = window.get_size();
