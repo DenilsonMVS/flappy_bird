@@ -16,6 +16,7 @@ pub struct GlyphAttrs {
 
 #[repr(C)]
 #[derive(GlVertex)]
+#[vertex(divisor = 4)]
 pub struct BaseFormat {
     offsets: glm::Vec2,
 }
@@ -314,7 +315,7 @@ impl<'a> Font<'a> {
             }
         }
 
-        let vbo = Buffer::<GlyphAttrs, Static>::new(renderer, &glyph_buffer_data).set_divisor(1);
+        let vbo = Buffer::<GlyphAttrs, Static>::new(renderer, &glyph_buffer_data);
         let vao = VertexArrayObject::new(renderer, &[&vbo]);
         
         return FontVbo {

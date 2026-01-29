@@ -1,46 +1,73 @@
 use proc_macro::TokenStream;
 use quote::quote;
 use syn::{
-	Attribute, Data, DeriveInput, Fields, Ident, ItemStruct, LitStr, Token, 
-	parse::{Parse, ParseStream}, parse_macro_input
+	Attribute, Data, DeriveInput, Fields, Ident, ItemStruct, LitInt, LitStr, Token, parse::{Parse, ParseStream}, parse_macro_input
 };
 
 // --- [GlVertex Derive] ---
 
 #[proc_macro_derive(GlVertex, attributes(vertex))]
 pub fn static_vertex_layout_derive(input: TokenStream) -> TokenStream {
-	let input = parse_macro_input!(input as DeriveInput);
-	let name = input.ident;
+    let input = parse_macro_input!(input as DeriveInput);
+    let name = input.ident;
 
-	let fields = match input.data {
-		Data::Struct(s) => match s.fields {
-			Fields::Named(f) => f.named,
-			_ => panic!("Apenas structs com campos nomeados."),
-		},
-		_ => panic!("Apenas structs são suportadas."),
-	};
+    // 1. Extrair o divisor da struct (nível superior)
+    let divisor = get_struct_divisor(&input.attrs);
 
-	let field_definitions = fields.iter().map(|f| {
-		let ty = &f.ty;
-		let is_normalized = has_normalized_attr(&f.attrs);
-		
-		quote! {
-			FieldType::new::<#ty>(#is_normalized)
-		}
-	});
+    let fields = match input.data {
+        Data::Struct(s) => match s.fields {
+            Fields::Named(f) => f.named,
+            _ => panic!("Apenas structs com campos nomeados."),
+        },
+        _ => panic!("Apenas structs são suportadas."),
+    };
 
-	let expanded = quote! {
-		impl StaticVertexLayout for #name {
-			fn get_fields() -> &'static [FieldType] {
-				const FIELDS: &[FieldType] = &[
-					#(#field_definitions),*
-				];
-				FIELDS
-			}
-		}
-	};
+    let field_definitions = fields.iter().map(|f| {
+        let ty = &f.ty;
+        let is_normalized = has_normalized_attr(&f.attrs);
+        
+        quote! {
+            FieldType::new::<#ty>(#is_normalized)
+        }
+    });
 
-	TokenStream::from(expanded)
+    let expanded = quote! {
+        impl StaticVertexLayout for #name {
+            fn get_fields() -> &'static [FieldType] {
+                const FIELDS: &[FieldType] = &[
+                    #(#field_definitions),*
+                ];
+                FIELDS
+            }
+
+            fn get_stride() -> i32 {
+                std::mem::size_of::<Self>() as i32
+            }
+
+            fn get_divisor() -> u32 {
+                #divisor
+            }
+        }
+    };
+
+    TokenStream::from(expanded)
+}
+
+fn get_struct_divisor(attrs: &[Attribute]) -> u32 {
+    for attr in attrs {
+        if attr.path().is_ident("vertex") {
+            let mut divisor = 0;
+            let _ = attr.parse_nested_meta(|meta| {
+                if meta.path.is_ident("divisor") {
+                    let value: LitInt = meta.value()?.parse()?;
+                    divisor = value.base10_parse::<u32>()?;
+                }
+                Ok(())
+            });
+            return divisor;
+        }
+    }
+    0
 }
 
 fn has_normalized_attr(attrs: &[Attribute]) -> bool {

@@ -53,7 +53,6 @@ impl StorageStrategy for Resizable {}
 
 pub struct Buffer<'a, T: StaticVertexLayout, S: StorageStrategy> {
     id: u32,
-    divisor: u32,
     _marker: PhantomData<&'a (S, T)>,
 }
 
@@ -65,20 +64,13 @@ impl<'a, T: StaticVertexLayout, S: StorageStrategy> VertexLayout for Buffer<'a, 
         T::get_stride()
     }
     fn get_divisor(&self) -> u32 {
-		self.divisor
+		T::get_divisor()
 	}
 }
 
 impl<'a, T: StaticVertexLayout, S: StorageStrategy> GenericBuffer for Buffer<'a, T, S> {
     fn get_id(&self) -> u32 {
         self.id
-    }
-}
-
-impl<'a, T: StaticVertexLayout, S: StorageStrategy> Buffer<'a, T, S> {
-    pub fn set_divisor(mut self, divisor: u32) -> Self {
-        self.divisor = divisor;
-        return self;
     }
 }
 
@@ -105,7 +97,6 @@ impl<'a, T: StaticVertexLayout> Buffer<'a, T, Static> {
 
         return Self {
             id,
-            divisor: 0,
             _marker: PhantomData
         };
     }
@@ -127,7 +118,6 @@ impl<'a, T: StaticVertexLayout> Buffer<'a, T, Dynamic> {
 
         Self {
             id,
-            divisor: 0,
             _marker: PhantomData,
         }
     }
@@ -153,7 +143,6 @@ impl<'a, T: StaticVertexLayout> Buffer<'a, T, Resizable> {
 
         return Self {
             id,
-            divisor: 0,
             _marker: PhantomData
         };
     }

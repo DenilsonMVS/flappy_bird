@@ -24,6 +24,7 @@ pub trait StaticVertexLayout: Sized {
     fn get_stride() -> i32 {
         std::mem::size_of::<Self>() as i32
     }
+    fn get_divisor() -> u32;
 }
 
 pub trait VertexLayout {
