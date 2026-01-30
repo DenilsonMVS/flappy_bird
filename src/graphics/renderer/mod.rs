@@ -8,6 +8,9 @@ pub mod drawable;
 pub mod texture;
 pub mod uniform;
 pub mod fonts;
+pub mod atlas;
+pub mod positioning;
+pub mod simple_texture;
 
 trait GlEnum: Sized {
     fn to_gl_enum(&self) -> u32;

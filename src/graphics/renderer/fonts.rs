@@ -3,7 +3,7 @@ use std::marker::PhantomData;
 use msdfgen::{Bitmap, FillRule, FontExt, MsdfGeneratorConfig, Vector2};
 use ttf_parser::Face;
 use vertex_derive::{GlVertex, program_interface};
-use crate::graphics::renderer::{Renderer, buffer::{self, Buffer, Static}, drawable::DrawMode, program::{Program, ShaderType}, texture::Texture, uniform::UniformValue, vertex_array_object::{FieldType, StaticVertexLayout, VertexArrayObject}};
+use crate::graphics::renderer::{Renderer, buffer::{self, Buffer, Static}, drawable::DrawMode, positioning::{BaseDimensions, PositionMode, generate_box}, program::{Program, ShaderType}, texture::Texture, uniform::UniformValue, vertex_array_object::{FieldType, StaticVertexLayout, VertexArrayObject}};
 use nalgebra_glm as glm;
 
 #[repr(C)]
@@ -105,29 +105,6 @@ fn calculate_atlas_dimensions(char_amount: usize) -> (usize, usize) {
 }
 
 pub const PX_RANGE: f32 = 4.0;
-
-#[derive(Debug, Clone, Copy, PartialEq)]
-pub enum PositionMode {
-	TopLeft,    TopCenter,    TopRight,
-	CenterLeft, Center,       CenterRight,
-	BottomLeft, BottomCenter, BottomRight,
-}
-
-impl PositionMode {
-	pub fn get_offsets(&self) -> glm::Vec2 {
-		match self {
-			PositionMode::TopLeft      => glm::vec2(0.0, 1.0),
-			PositionMode::TopCenter    => glm::vec2(0.5, 1.0),
-			PositionMode::TopRight     => glm::vec2(1.0, 1.0),
-			PositionMode::CenterLeft   => glm::vec2(0.0, 0.5),
-			PositionMode::Center       => glm::vec2(0.5, 0.5),
-			PositionMode::CenterRight  => glm::vec2(1.0, 0.5),
-			PositionMode::BottomLeft   => glm::vec2(0.0, 0.0),
-			PositionMode::BottomCenter => glm::vec2(0.5, 0.0),
-			PositionMode::BottomRight  => glm::vec2(1.0, 0.0),
-		}
-	}
-}
 
 pub struct TextRenderConfig<'a> {
     pub text: &'a str,
@@ -270,33 +247,32 @@ impl<'a> Font<'a> {
 
         let font_height = self.ascender - self.descender;
 
-        for TextRenderConfig {
-            text,
-            position,
-            line_height,
-            position_mode
-        } in rendered_text {
-            let total_width = text.chars().fold(0.0f32, |acc, c|
+        for config in rendered_text {
+            let total_width = config.text.chars().fold(0.0f32, |acc, c|
                 acc + self.glyphs
                     .binary_search_by_key(&c, |g| g.character)
                     .map(|idx| self.glyphs[idx].info.advance)
                     .unwrap_or(0.0)
             );
 
-            let scale = line_height / font_height;
-            let offsets = position_mode.get_offsets();
+            let text_block_box = generate_box(
+                config.position,
+                config.position_mode,
+                glm::vec2(total_width, font_height),
+                BaseDimensions::Height(config.line_height),
+            );
 
-            let mut cursor_x = position.x - (total_width * scale * offsets.x);
+            let scale = config.line_height / font_height;
+            
+            let mut cursor_x = text_block_box.min.x;
+            let baseline_y = text_block_box.min.y - (self.descender * scale);
 
-            let baseline_offset = self.descender * scale;
-            let cursor_y = position.y - (line_height * offsets.y) - baseline_offset;
-
-            for c in text.chars() {
+            for c in config.text.chars() {
                 if let Ok(idx) = self.glyphs.binary_search_by_key(&c, |g| g.character) {
                     let info = &self.glyphs[idx].info;
                     
-                    let min_pos = glm::vec2(cursor_x, cursor_y) + info.bound_min * scale;
-                    let max_pos = glm::vec2(cursor_x, cursor_y) + info.bound_max * scale;
+                    let min_pos = glm::vec2(cursor_x, baseline_y) + info.bound_min * scale;
+                    let max_pos = glm::vec2(cursor_x, baseline_y) + info.bound_max * scale;
 
                     glyph_buffer_data.push(GlyphAttrs {
                         bound_min: min_pos,
@@ -312,11 +288,11 @@ impl<'a> Font<'a> {
         let vbo = Buffer::<GlyphAttrs, Static>::new(renderer, &glyph_buffer_data);
         let vao = VertexArrayObject::new(renderer, &[&vbo]);
         
-        return FontVbo {
+        FontVbo {
             _vbo: vbo,
             vao,
             amount: glyph_buffer_data.len() as i32,
             texture: &self.texture
-        };
+        }
     }
 }

@@ -1,0 +1,123 @@
+use vertex_derive::{GlVertex, program_interface};
+use nalgebra_glm as glm;
+use crate::graphics::renderer::{Renderer, atlas::{Atlas, UvInfo}, buffer::{Buffer, Dynamic}, drawable::DrawMode, positioning::{BaseDimensions, PositionMode, generate_oriented_box}, program::{Program, ShaderType}, texture::{MagFiltering, MinFiltering, Texture, TextureWrap}, uniform::UniformValue, vertex_array_object::{FieldType, StaticVertexLayout, VertexArrayObject}};
+
+const QUADS_PER_RENDER: usize = 1 << 20;
+
+#[repr(C)]
+#[derive(GlVertex, Debug)]
+#[vertex(divisor = 1)]
+struct TextureVertex {
+    top_left: glm::Vec2,
+    top_right: glm::Vec2,
+    bot_left: glm::Vec2,
+    bot_right: glm::Vec2,
+    uv_min: glm::Vec2,
+    uv_max: glm::Vec2,
+}
+
+#[program_interface(
+	vert = "../../../res/shaders/texture.vert",
+	frag = "../../../res/shaders/texture.frag"
+)]
+struct TextureProgram {
+    u_projection: glm::Mat4,
+    u_texture: i32,
+}
+
+pub struct SimpleTextureRenderer<'a> {
+    program: TextureProgram<'a>,
+}
+
+impl<'a> SimpleTextureRenderer<'a> {
+    pub fn new(renderer: &'a Renderer) -> Self {
+        let program = TextureProgram::init(renderer).unwrap();
+        program.set_u_texture(&0);
+
+        return Self { program };
+    }
+
+    pub fn draw(&self, projection_matrix: &glm::Mat4, simple_texture: &mut SimpleTexture) {
+        self.program.bind();
+        self.program.set_u_projection(projection_matrix);
+        
+        simple_texture.get_texture().bind_to_unit(0);
+        simple_texture.get_vao().draw_instanced(4, simple_texture.get_quad_amount() as i32, DrawMode::TriangleStrip);
+        simple_texture.clear_staging_area();
+    }
+}
+
+pub struct SimpleTexture<'a> {
+    texture: Texture<'a>,
+    atlas: Atlas,
+    vbo: Buffer<'a, TextureVertex, Dynamic>,
+    vao: VertexArrayObject<'a>,
+    staging_area: Vec<TextureVertex>,
+}
+
+impl<'a> SimpleTexture<'a> {
+    pub fn new(
+        renderer: &'a Renderer,
+        texture: &[u8],
+        mag_filter: MagFiltering,
+        min_filter: MinFiltering,
+        wrap: TextureWrap,
+        atlas: &[u8],
+    ) -> Option<Self> {
+        let texture = Texture::from_image_bytes(renderer, texture, mag_filter, min_filter, wrap)?;
+        let atlas = Atlas::new(atlas).ok()?;
+        let vbo = Buffer::<TextureVertex, Dynamic>::new(renderer, QUADS_PER_RENDER * 4);
+        let vao = VertexArrayObject::new(renderer, &[&vbo]);
+        let staging_area = Vec::with_capacity(QUADS_PER_RENDER * 4);
+        return Some(Self { texture, atlas, vao, vbo, staging_area });
+    }
+
+    pub fn send(&mut self) {
+        self.vbo.set_sub_data(&self.staging_area, 0);
+    }
+
+    fn get_texture(&'a self) -> &'a Texture<'a> {
+        &self.texture
+    }
+
+    fn get_vao(&'a self) -> &'a VertexArrayObject<'a> {
+        &self.vao
+    }
+
+    fn get_quad_amount(&self) -> usize {
+        self.staging_area.len()
+    }
+
+    fn clear_staging_area(&mut self) {
+        self.staging_area.clear();
+    }
+
+    pub fn get_frame_info(&self, frame: &str) -> Option<(UvInfo, glm::Vec2)> {
+        let frame_info = self.atlas.get_frame_info(frame)?;
+        return Some((
+            frame_info.to_uv(&self.atlas.get_dimensions()),
+            glm::vec2(frame_info.width as f32, frame_info.height as f32),
+        ));
+    }
+
+    pub fn add_oriented_quad(&mut self,
+        position: glm::Vec2,
+        position_mode: PositionMode,
+        original_size: glm::Vec2,
+        base_dimension: BaseDimensions,
+        up_vector: glm::Vec2,
+        uv_data: &UvInfo,
+    ) {
+        let oriented_box = generate_oriented_box(
+            position, position_mode, original_size, base_dimension, up_vector);
+
+        self.staging_area.push(TextureVertex {
+            top_left: oriented_box.top_left,
+            top_right: oriented_box.top_right,
+            bot_left: oriented_box.bot_left,
+            bot_right: oriented_box.bot_right,
+            uv_min: uv_data.min,
+            uv_max: uv_data.max,
+        });
+    }
+}
