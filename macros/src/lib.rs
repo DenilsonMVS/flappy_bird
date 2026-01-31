@@ -7,14 +7,12 @@ use syn::{
 	Attribute, Data, DeriveInput, Fields, Ident, ItemStruct, LitInt, LitStr, Token, parse::{Parse, ParseStream}, parse_macro_input
 };
 
-// --- [GlVertex Derive] ---
 
 #[proc_macro_derive(GlVertex, attributes(vertex))]
 pub fn static_vertex_layout_derive(input: TokenStream) -> TokenStream {
     let input = parse_macro_input!(input as DeriveInput);
     let name = input.ident;
 
-    // 1. Extrair o divisor da struct (nível superior)
     let divisor = get_struct_divisor(&input.attrs);
 
     let fields = match input.data {
@@ -93,7 +91,6 @@ fn has_normalized_attr(attrs: &[Attribute]) -> bool {
 	})
 }
 
-// --- [Program Interface Attribute] ---
 
 struct ShaderArgs {
 	args: Vec<(String, String)>,
@@ -119,25 +116,21 @@ pub fn program_interface(args: TokenStream, input: TokenStream) -> TokenStream {
 	let mut item_struct = parse_macro_input!(input as ItemStruct);
 	let name = &item_struct.ident;
 
-	// Adiciona o lifetime para o Renderer
 	item_struct.generics.params.push(syn::parse_quote!('a));
 
-	let mut field_info = Vec::new(); // Armazena (identificador, tipo_original)
+	let mut field_info = Vec::new();
 
 	if let Fields::Named(ref mut fields) = item_struct.fields {
 		for field in fields.named.iter_mut() {
 			let f_ident = field.ident.as_ref().unwrap().clone();
 			let f_ty = field.ty.clone();
 			
-			// Guardamos os tipos originais para os setters
 			field_info.push((f_ident, f_ty));
 			
-			// Transformamos o campo da struct em um i32 (location)
 			field.ty = syn::parse_quote!(i32);
 			field.vis = syn::Visibility::Public(syn::parse_quote!(pub));
 		}
 
-		// Adiciona o programa interno (posse do ID OpenGL)
 		fields.named.push(syn::parse_quote!(pub program: Program<'a>));
 	}
 
@@ -159,7 +152,6 @@ pub fn program_interface(args: TokenStream, input: TokenStream) -> TokenStream {
 		}
 	});
 
-	// Inicializa as localizações dos uniforms
 	let field_initializers = field_info.iter().map(|(f, _)| {
 		let f_str = f.to_string();
 		quote! {
@@ -169,7 +161,6 @@ pub fn program_interface(args: TokenStream, input: TokenStream) -> TokenStream {
 		}
 	});
 
-	// Gera os setters tipados usando DSA (glProgramUniform)
 	let setters = field_info.iter().map(|(f, ty)| {
 		let setter_name = Ident::new(&format!("set_{}", f), f.span());
 		quote! {
@@ -216,6 +207,7 @@ pub fn program_interface(args: TokenStream, input: TokenStream) -> TokenStream {
 	TokenStream::from(expanded)
 }
 
+
 #[proc_macro_attribute]
 pub fn atlas_bundle(attr: TokenStream, item: TokenStream) -> TokenStream {
     let path_lit = parse_macro_input!(attr as LitStr);
@@ -224,7 +216,6 @@ pub fn atlas_bundle(attr: TokenStream, item: TokenStream) -> TokenStream {
     let struct_name = &input.ident;
     let vis = &input.vis;
 
-    // 1. Ler JSON para capturar as chaves
     let root = env::var("CARGO_MANIFEST_DIR").unwrap_or_else(|_| ".".into());
     let full_path = Path::new(&root).join(&path_str);
     let content = fs::read_to_string(&full_path).expect("Falha ao ler JSON");
@@ -236,7 +227,6 @@ pub fn atlas_bundle(attr: TokenStream, item: TokenStream) -> TokenStream {
     let enum_name = format_ident!("{}Frame", struct_name);
     let fields_struct_name = format_ident!("{}Fields", struct_name);
     
-    // Preparar identificadores (campos da struct e variantes do enum)
     let field_idents: Vec<_> = keys.iter().map(|k| format_ident!("{}", k)).collect();
     let variant_idents: Vec<_> = keys.iter().map(|k| format_ident!("{}", AsPascalCase(k).to_string())).collect();
 
@@ -246,7 +236,6 @@ pub fn atlas_bundle(attr: TokenStream, item: TokenStream) -> TokenStream {
             #(#variant_idents),*
         }
 
-        // Struct auxiliar para o Serde fazer o parse direto sem HashMap
         #[derive(serde::Deserialize)]
         #vis struct #fields_struct_name {
             #(pub #field_idents: FrameInfo),*
@@ -261,11 +250,8 @@ pub fn atlas_bundle(attr: TokenStream, item: TokenStream) -> TokenStream {
             type Frame = #enum_name;
 
             fn new(bytes: &[u8]) -> Option<Self> {
-                // Aqui o Serde preenche a struct DIRETAMENTE. 
-                // Zero alocação de HashMap/Vector por parte do seu código.
                 let f: #fields_struct_name = serde_json::from_slice(bytes).ok()?;
                 
-                // Cálculo das dimensões usando os campos estáticos
                 let mut max_w = 0;
                 let mut max_h = 0;
                 
@@ -281,7 +267,6 @@ pub fn atlas_bundle(attr: TokenStream, item: TokenStream) -> TokenStream {
             }
 
             fn get_info(&self, frame: Self::Frame) -> (UvInfo, nalgebra_glm::Vec2) {
-                // Match para transformar a variante do enum em acesso ao campo
                 let f = match frame {
                     #(#enum_name::#variant_idents => &self.frames.#field_idents),*
                 };

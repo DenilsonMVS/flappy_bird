@@ -10,11 +10,11 @@ image = "0.25.9"
 msdfgen = "0.2.1"
 ttf-parser = "0.18.1"
 nalgebra-glm = "0.20.0"
-vertex_derive = { path = "./vertex_derive" }
+macros = { path = "./macros" }
 rodio = "0.21.1"
 serde = { version = "1.0.228", features = ["derive"] }
 serde_json = "1.0.149"
 rand = "0.9.2"
 
 [workspace]
-members = ["vertex_derive"]
+members = ["macros"]

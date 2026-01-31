@@ -2,7 +2,7 @@ use std::marker::PhantomData;
 
 use msdfgen::{Bitmap, FillRule, FontExt, MsdfGeneratorConfig, Vector2};
 use ttf_parser::Face;
-use vertex_derive::{GlVertex, program_interface};
+use macros::{GlVertex, program_interface};
 use crate::graphics::renderer::{Renderer, buffer::{self, Buffer, Static}, drawable::DrawMode, positioning::{BaseDimensions, PositionMode, generate_box}, program::{Program, ShaderType}, texture::Texture, uniform::UniformValue, vertex_array_object::{FieldType, StaticVertexLayout, VertexArrayObject}};
 use nalgebra_glm as glm;
 

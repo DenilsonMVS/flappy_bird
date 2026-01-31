@@ -5,7 +5,7 @@ use crate::{MainContext, game::scene::Scene, graphics::renderer::{BlendFactor, C
 use glfw::{Action, Key};
 use nalgebra_glm as glm;
 use rand::{Rng, rngs::ThreadRng};
-use vertex_derive::atlas_bundle;
+use macros::atlas_bundle;
 
 const HORIZONTAL_SPEED: f32 = 0.5;
 const SCENE_HEIGHT: f32 = 2.4;
