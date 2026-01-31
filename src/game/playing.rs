@@ -312,24 +312,25 @@ impl<'a> Playing<'a> {
         let bird_world_x = self.position.x + BIRD_START_POSITION;
         let bird_center = glm::vec2(bird_world_x, self.position.y);
     
-        return self.pipes.iter().fold(false, |prev, pipe|
-            prev || {
-                let pipe_left = pipe.x_position - PIPE_WIDTH * 0.5;
-                let pipe_right = pipe.x_position + PIPE_WIDTH * 0.5;
+        return self.position.y < -1.0 || self.position.y > 1.0 ||
+            self.pipes.iter().fold(false, |prev, pipe|
+                prev || {
+                    let pipe_left = pipe.x_position - PIPE_WIDTH * 0.5;
+                    let pipe_right = pipe.x_position + PIPE_WIDTH * 0.5;
 
-                let gap_bottom = pipe.opening_y_position - PIPE_SPACE * 0.5;
-                let gap_top = pipe.opening_y_position + PIPE_SPACE * 0.5;
+                    let gap_bottom = pipe.opening_y_position - PIPE_SPACE * 0.5;
+                    let gap_top = pipe.opening_y_position + PIPE_SPACE * 0.5;
 
-                return Self::circle_rect_collision(
-                    bird_center, BIRD_RADIUS,
-                    glm::vec2(pipe_left, -10.0),
-                    glm::vec2(pipe_right, gap_bottom),
-                ) || Self::circle_rect_collision(
-                    bird_center, BIRD_RADIUS,
-                    glm::vec2(pipe_left, gap_top),
-                    glm::vec2(pipe_right, 10.0),
-                );
-            }
+                    return Self::circle_rect_collision(
+                        bird_center, BIRD_RADIUS,
+                        glm::vec2(pipe_left, -10.0),
+                        glm::vec2(pipe_right, gap_bottom),
+                    ) || Self::circle_rect_collision(
+                        bird_center, BIRD_RADIUS,
+                        glm::vec2(pipe_left, gap_top),
+                        glm::vec2(pipe_right, 10.0),
+                    );
+                }
         );
     }
 
