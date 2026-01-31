@@ -1,5 +1,8 @@
+use std::{collections::HashMap, env, fs, path::Path};
+
+use heck::AsPascalCase;
 use proc_macro::TokenStream;
-use quote::quote;
+use quote::{format_ident, quote};
 use syn::{
 	Attribute, Data, DeriveInput, Fields, Ident, ItemStruct, LitInt, LitStr, Token, parse::{Parse, ParseStream}, parse_macro_input
 };
@@ -211,4 +214,86 @@ pub fn program_interface(args: TokenStream, input: TokenStream) -> TokenStream {
 	};
 
 	TokenStream::from(expanded)
+}
+
+#[proc_macro_attribute]
+pub fn atlas_bundle(attr: TokenStream, item: TokenStream) -> TokenStream {
+    let path_lit = parse_macro_input!(attr as LitStr);
+    let path_str = path_lit.value();
+    let input = parse_macro_input!(item as ItemStruct);
+    let struct_name = &input.ident;
+    let vis = &input.vis;
+
+    // 1. Ler JSON para capturar as chaves
+    let root = env::var("CARGO_MANIFEST_DIR").unwrap_or_else(|_| ".".into());
+    let full_path = Path::new(&root).join(&path_str);
+    let content = fs::read_to_string(&full_path).expect("Falha ao ler JSON");
+    let raw_json: HashMap<String, serde_json::Value> = serde_json::from_str(&content).expect("JSON inválido");
+
+    let mut keys: Vec<_> = raw_json.keys().cloned().collect();
+    keys.sort();
+
+    let enum_name = format_ident!("{}Frame", struct_name);
+    let fields_struct_name = format_ident!("{}Fields", struct_name);
+    
+    // Preparar identificadores (campos da struct e variantes do enum)
+    let field_idents: Vec<_> = keys.iter().map(|k| format_ident!("{}", k)).collect();
+    let variant_idents: Vec<_> = keys.iter().map(|k| format_ident!("{}", AsPascalCase(k).to_string())).collect();
+
+    let expanded = quote! {
+        #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+        pub enum #enum_name {
+            #(#variant_idents),*
+        }
+
+        // Struct auxiliar para o Serde fazer o parse direto sem HashMap
+        #[derive(serde::Deserialize)]
+        #vis struct #fields_struct_name {
+            #(pub #field_idents: FrameInfo),*
+        }
+
+        #vis struct #struct_name {
+            pub dimensions: nalgebra_glm::U32Vec2,
+            pub frames: #fields_struct_name,
+        }
+
+        impl TypedAtlas for #struct_name {
+            type Frame = #enum_name;
+
+            fn new(bytes: &[u8]) -> Option<Self> {
+                // Aqui o Serde preenche a struct DIRETAMENTE. 
+                // Zero alocação de HashMap/Vector por parte do seu código.
+                let f: #fields_struct_name = serde_json::from_slice(bytes).ok()?;
+                
+                // Cálculo das dimensões usando os campos estáticos
+                let mut max_w = 0;
+                let mut max_h = 0;
+                
+                #(
+                    max_w = max_w.max(f.#field_idents.x + f.#field_idents.width);
+                    max_h = max_h.max(f.#field_idents.y + f.#field_idents.height);
+                )*
+
+                Some(Self {
+                    dimensions: nalgebra_glm::U32Vec2::new(max_w, max_h),
+                    frames: f,
+                })
+            }
+
+            fn get_info(&self, frame: Self::Frame) -> (UvInfo, nalgebra_glm::Vec2) {
+                // Match para transformar a variante do enum em acesso ao campo
+                let f = match frame {
+                    #(#enum_name::#variant_idents => &self.frames.#field_idents),*
+                };
+                
+                (f.to_uv(&self.dimensions), nalgebra_glm::vec2(f.width as f32, f.height as f32))
+            }
+
+            fn dimensions(&self) -> nalgebra_glm::U32Vec2 {
+                self.dimensions
+            }
+        }
+    };
+
+    TokenStream::from(expanded)
 }

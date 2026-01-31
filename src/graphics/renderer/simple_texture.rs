@@ -1,6 +1,6 @@
 use vertex_derive::{GlVertex, program_interface};
 use nalgebra_glm as glm;
-use crate::graphics::renderer::{Renderer, atlas::{Atlas, UvInfo}, buffer::{Buffer, Dynamic}, drawable::DrawMode, positioning::{BaseDimensions, PositionMode, SimpleTransform, generate_box, generate_oriented_box}, program::{Program, ShaderType}, texture::{MagFiltering, MinFiltering, Texture, TextureWrap}, uniform::UniformValue, vertex_array_object::{FieldType, StaticVertexLayout, VertexArrayObject}};
+use crate::graphics::renderer::{Renderer, atlas::{TypedAtlas, UvInfo}, buffer::{Buffer, Dynamic}, drawable::DrawMode, positioning::{BaseDimensions, PositionMode, SimpleTransform, generate_box, generate_oriented_box}, program::{Program, ShaderType}, texture::{MagFiltering, MinFiltering, Texture, TextureWrap}, uniform::UniformValue, vertex_array_object::{FieldType, StaticVertexLayout, VertexArrayObject}};
 
 const QUADS_PER_RENDER: usize = 1 << 10;
 
@@ -37,7 +37,7 @@ impl<'a> SimpleTextureRenderer<'a> {
         return Self { program };
     }
 
-    pub fn draw(&self, projection_matrix: &glm::Mat4, simple_texture: &mut SimpleTexture) {
+    pub fn draw<Atlas: TypedAtlas>(&self, projection_matrix: &glm::Mat4, simple_texture: &mut SimpleTexture<Atlas>) {
         self.program.bind();
         self.program.set_u_projection(projection_matrix);
         
@@ -47,15 +47,15 @@ impl<'a> SimpleTextureRenderer<'a> {
     }
 }
 
-pub struct SimpleTexture<'a> {
+pub struct SimpleTexture<'a, Atlas: TypedAtlas> {
     texture: Texture<'a>,
-    atlas: Atlas,
     vbo: Buffer<'a, TextureVertex, Dynamic>,
     vao: VertexArrayObject<'a>,
     staging_area: Vec<TextureVertex>,
+    atlas: Atlas,
 }
 
-impl<'a> SimpleTexture<'a> {
+impl<'a, Atlas: TypedAtlas> SimpleTexture<'a, Atlas> {
     pub fn new(
         renderer: &'a Renderer,
         texture: &[u8],
@@ -65,11 +65,11 @@ impl<'a> SimpleTexture<'a> {
         atlas: &[u8],
     ) -> Option<Self> {
         let texture = Texture::from_image_bytes(renderer, texture, mag_filter, min_filter, wrap)?;
-        let atlas = Atlas::new(atlas).ok()?;
         let vbo = Buffer::<TextureVertex, Dynamic>::new(renderer, QUADS_PER_RENDER * 4);
         let vao = VertexArrayObject::new(renderer, &[&vbo]);
         let staging_area = Vec::with_capacity(QUADS_PER_RENDER * 4);
-        return Some(Self { texture, atlas, vao, vbo, staging_area });
+        let atlas = Atlas::new(atlas)?;
+        return Some(Self { texture, vao, vbo, staging_area, atlas });
     }
 
     pub fn send(&mut self) {
@@ -92,12 +92,8 @@ impl<'a> SimpleTexture<'a> {
         self.staging_area.clear();
     }
 
-    pub fn get_frame_info(&self, frame: &str) -> Option<(UvInfo, glm::Vec2)> {
-        let frame_info = self.atlas.get_frame_info(frame)?;
-        return Some((
-            frame_info.to_uv(&self.atlas.get_dimensions()),
-            glm::vec2(frame_info.width as f32, frame_info.height as f32),
-        ));
+    pub fn get_frame_info(&self, frame: Atlas::Frame) -> (UvInfo, glm::Vec2) {
+        self.atlas.get_info(frame)
     }
 
     pub fn add_quad(&mut self,

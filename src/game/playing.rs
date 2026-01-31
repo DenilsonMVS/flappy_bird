@@ -1,10 +1,11 @@
 
 use std::time;
 
-use crate::{MainContext, game::scene::Scene, graphics::renderer::{BlendFactor, Capability, ClearField, Renderer, atlas::UvInfo, positioning::{BaseDimensions, PositionMode, SimpleTransform, scale_dimension}, simple_texture::{SimpleTexture, SimpleTextureRenderer}, texture::{MagFiltering, MinFiltering, TextureWrap}}};
+use crate::{MainContext, game::scene::Scene, graphics::renderer::{BlendFactor, Capability, ClearField, Renderer, atlas::{FrameInfo, TypedAtlas, UvInfo}, positioning::{BaseDimensions, PositionMode, SimpleTransform, scale_dimension}, simple_texture::{SimpleTexture, SimpleTextureRenderer}, texture::{MagFiltering, MinFiltering, TextureWrap}}};
 use glfw::{Action, Key};
 use nalgebra_glm as glm;
 use rand::{Rng, rngs::ThreadRng};
+use vertex_derive::atlas_bundle;
 
 const HORIZONTAL_SPEED: f32 = 0.5;
 const SCENE_HEIGHT: f32 = 2.4;
@@ -23,27 +24,13 @@ const BIRD_RADIUS: f32 = 0.075;
 struct BirdFlyState {
     current_index: u8,
     last_change: std::time::Instant,
-    original_size: glm::Vec2,
-    texture_states: [UvInfo; 4],
 }
 
 impl BirdFlyState {
-    fn new(simple_texture: &SimpleTexture) -> Self {
-        let bird1 = simple_texture.get_frame_info("bird_1").unwrap();
-        let bird2 = simple_texture.get_frame_info("bird_2").unwrap();
-        let bird3 = simple_texture.get_frame_info("bird_3").unwrap();
-        let bird4 = simple_texture.get_frame_info("bird_4").unwrap();
-
+    fn new() -> Self {
         Self {
             current_index: 0,
             last_change: std::time::Instant::now(),
-            texture_states: [
-                bird1.0,
-                bird2.0,
-                bird3.0,
-                bird4.0,
-            ],
-            original_size: bird1.1
         }
     }
 
@@ -64,18 +51,14 @@ impl BirdFlyState {
         self.last_change = *now;
     }
 
-    fn get_original_size(&self) -> glm::Vec2 {
-        self.original_size
-    }
-
-    fn get_texture_state(&self) -> &UvInfo {
-        &self.texture_states[match self.current_index {
-            0 => 0,
-            1 | 4 => 1,
-            2 => 2,
-            3 => 3,
+    fn get_texture_state(&self, simple_texture: &SimpleTexture<Atlas>) -> (UvInfo, glm::Vec2) {
+        simple_texture.get_frame_info(match self.current_index {
+            0 => AtlasFrame::Bird1,
+            1 | 4 => AtlasFrame::Bird2,
+            2 => AtlasFrame::Bird3,
+            3 => AtlasFrame::Bird4,
             _ => unreachable!()
-        }]
+        })
     }
 }
 
@@ -85,23 +68,16 @@ struct Pipe {
     opening_y_position: f32,
 }
 
+#[atlas_bundle("res/textures/atlas/texture.json")]
+struct Atlas;
+
 pub struct Playing<'a> {
     position: glm::Vec2,
     vertical_speed: f32,
     simple_texture_renderer: SimpleTextureRenderer<'a>,
-    simple_texture: SimpleTexture<'a>,
+    simple_texture: SimpleTexture<'a, Atlas>,
     bird_fly_state: BirdFlyState,
     last_frame_time: std::time::Instant,
-
-    scene_original_dimensions: glm::Vec2,
-    scene_uv: UvInfo,
-
-    pipe_entrance_original_dimensions: glm::Vec2,
-    pipe_entrance_uv: UvInfo,
-
-    pipe_original_dimensions: glm::Vec2,
-    pipe_uv: UvInfo,
-
     pipes: [Pipe; PIPE_AMOUNT],
     smaller_pipe: usize,
     rng: ThreadRng,
@@ -118,12 +94,8 @@ impl<'a> Playing<'a> {
             renderer,
             include_bytes!("../../res/textures/atlas/texture.png"),
             MagFiltering::Nearest, MinFiltering::Nearest, TextureWrap::ClampToBorder,
-            include_bytes!("../../res/textures/atlas/texture.json"),
+            include_bytes!("../../res/textures/atlas/texture.json")
         ).unwrap();
-
-        let (scene_uv, scene_original_dimensions) = simple_texture.get_frame_info("scene").unwrap();
-        let (pipe_entrance_uv, pipe_entrance_original_dimensions) = simple_texture.get_frame_info("top_cano").unwrap();
-        let (pipe_uv, pipe_original_dimensions) = simple_texture.get_frame_info("cano").unwrap();
         
         let mut rng = rand::rng();
         let pipes: [Pipe; PIPE_AMOUNT] = std::array::from_fn(|idx| {
@@ -136,20 +108,10 @@ impl<'a> Playing<'a> {
         return Self {
             position: glm::vec2(BIRD_START_POSITION, 0.0),
             vertical_speed: 0.5,
-            bird_fly_state: BirdFlyState::new(&simple_texture),
+            bird_fly_state: BirdFlyState::new(),
             simple_texture_renderer,
             simple_texture,
             last_frame_time: time::Instant::now(),
-            
-            scene_original_dimensions,
-            scene_uv,
-
-            pipe_entrance_original_dimensions,
-            pipe_entrance_uv,
-
-            pipe_original_dimensions,
-            pipe_uv,
-
             pipes,
             smaller_pipe: 0,
             rng
@@ -219,7 +181,8 @@ impl<'a> Scene for Playing<'a> {
 
 impl<'a> Playing<'a> {
     fn draw_scene(&mut self) {
-        let scene_width = scale_dimension(self.scene_original_dimensions, BaseDimensions::Height(SCENE_HEIGHT));
+        let (scene_uv, scene_original_dimensions) = self.simple_texture.get_frame_info(AtlasFrame::Scene);
+        let scene_width = scale_dimension(scene_original_dimensions, BaseDimensions::Height(SCENE_HEIGHT));
         let scene_start_position = (-self.position.x * 0.5).rem_euclid(scene_width) - scene_width * 3.0;
 
         for offset in 0..5 {
@@ -227,16 +190,18 @@ impl<'a> Playing<'a> {
             self.simple_texture.add_quad(
                 glm::vec2(scene_pos, 1.0),
                 PositionMode::TopLeft,
-                self.scene_original_dimensions,
+                scene_original_dimensions,
                 BaseDimensions::Height(SCENE_HEIGHT),
-                &self.scene_uv,
+                &scene_uv,
             );
         }
     }
 
     fn draw_pipes(&mut self) {
-        let pipe_entrance_height = scale_dimension(self.pipe_entrance_original_dimensions, BaseDimensions::Width(PIPE_WIDTH));
-        let pipe_height = scale_dimension(self.pipe_original_dimensions, BaseDimensions::Width(PIPE_WIDTH));
+        let (pipe_entrance_uv, pipe_entrance_original_dimensions) = self.simple_texture.get_frame_info(AtlasFrame::TopCano);
+        let (pipe_uv, pipe_original_dimensions) = self.simple_texture.get_frame_info(AtlasFrame::Cano);
+        let pipe_entrance_height = scale_dimension(pipe_entrance_original_dimensions, BaseDimensions::Width(PIPE_WIDTH));
+        let pipe_height = scale_dimension(pipe_original_dimensions, BaseDimensions::Width(PIPE_WIDTH));
 
         for &pipe in self.pipes.iter() {
             let position = pipe.x_position - self.position.x;
@@ -247,9 +212,9 @@ impl<'a> Playing<'a> {
                 self.simple_texture.add_quad(
                     glm::vec2(position, pipe_start_pos),
                     PositionMode::TopCenter,
-                    self.pipe_entrance_original_dimensions,
+                    pipe_entrance_original_dimensions,
                     BaseDimensions::Width(PIPE_WIDTH),
-                    &self.pipe_entrance_uv
+                    &pipe_entrance_uv
                 );
 
                 for idx in 0..REPEATED_PIPES {
@@ -257,9 +222,9 @@ impl<'a> Playing<'a> {
                     self.simple_texture.add_quad(
                         glm::vec2(position, pipe_y_pos),
                         PositionMode::TopCenter,
-                        self.pipe_original_dimensions,
+                        pipe_original_dimensions,
                         BaseDimensions::Width(PIPE_WIDTH),
-                        &self.pipe_uv
+                        &pipe_uv
                     );
                 }
             }
@@ -270,9 +235,9 @@ impl<'a> Playing<'a> {
                 self.simple_texture.add_quad_simple_transform(
                     glm::vec2(position, pipe.opening_y_position + PIPE_SPACE * 0.5),
                     PositionMode::BottomCenter,
-                    self.pipe_entrance_original_dimensions,
+                    pipe_entrance_original_dimensions,
                     BaseDimensions::Width(PIPE_WIDTH),
-                    &self.pipe_entrance_uv,
+                    &pipe_entrance_uv,
                     SimpleTransform::FlipVertical
                 );
 
@@ -281,9 +246,9 @@ impl<'a> Playing<'a> {
                     self.simple_texture.add_quad_simple_transform(
                         glm::vec2(position, pipe_y_pos),
                         PositionMode::BottomCenter,
-                        self.pipe_original_dimensions,
+                        pipe_original_dimensions,
                         BaseDimensions::Width(PIPE_WIDTH),
-                        &self.pipe_uv,
+                        &pipe_uv,
                         SimpleTransform::FlipVertical
                     );
                 }
@@ -292,7 +257,7 @@ impl<'a> Playing<'a> {
     }
 
     fn draw_bird(&mut self) {
-        let original_size = self.bird_fly_state.get_original_size();
+        let (uv_data, original_size) = self.bird_fly_state.get_texture_state(&self.simple_texture);
         
         let velocity = glm::vec2(HORIZONTAL_SPEED, self.vertical_speed);
         let direction = glm::normalize(&velocity);
@@ -304,7 +269,7 @@ impl<'a> Playing<'a> {
             original_size,
             BaseDimensions::Height(BIRD_RADIUS * 2.0),
             up_vector,
-            self.bird_fly_state.get_texture_state(),
+            &uv_data,
         );
     }
 

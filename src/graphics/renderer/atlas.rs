@@ -1,6 +1,4 @@
 
-use std::collections::HashMap;
-
 use nalgebra_glm::{self as glm};
 use serde::{Deserialize, Serialize};
 
@@ -35,35 +33,9 @@ pub struct UvInfo {
     pub max: glm::Vec2,
 }
 
-
-
-pub struct Atlas {
-    dimensions: glm::U32Vec2,
-    frames: HashMap<String, FrameInfo>,
-}
-
-impl Atlas {
-    pub fn new(bytes: &[u8]) -> Result<Self, serde_json::Error> {
-        let frames: HashMap<String, FrameInfo> = serde_json::from_slice(bytes)?;
-        let dimensions = frames.values()
-            .fold(glm::vec2(0u32, 0u32), |prev, frame|
-                glm::vec2(
-                    prev.x.max(frame.x + frame.width),
-                    prev.y.max(frame.y + frame.height)
-                )
-            );
-        return Ok(Self { frames, dimensions });
-    }
-
-    pub fn get_frame_info(&self, frame: &str) -> Option<&FrameInfo> {
-        self.frames.get(frame)
-    }
-
-    pub fn get_uv_info(&self, frame: &str) -> Option<UvInfo> {
-        self.frames.get(frame).map(|frame| frame.to_uv(&self.dimensions))
-    }
-
-    pub fn get_dimensions(&self) -> glm::U32Vec2 {
-        self.dimensions
-    }
+pub trait TypedAtlas: Sized {
+    type Frame: Copy;
+    fn new(bytes: &[u8]) -> Option<Self>;
+    fn get_info(&self, frame: Self::Frame) -> (UvInfo, nalgebra_glm::Vec2);
+    fn dimensions(&self) -> nalgebra_glm::U32Vec2;
 }
