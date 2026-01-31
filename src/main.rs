@@ -7,22 +7,29 @@ use std::time;
 
 use glfw::{Context, Glfw, GlfwReceiver, PWindow, WindowEvent};
 use nalgebra_glm::{self as glm, Mat4};
-use crate::{game::{playing::Playing, scene::Scene}, graphics::renderer::Renderer, sounds::{Sound, Sounds}};
+use crate::{game::{main_menu::MainMenu, scene::Scene}, graphics::renderer::{Renderer, fonts::{Fonts, TextRenderConfig}, positioning::{PositionMode, screen_pos_to_world_pos}}, sounds::{Sound, Sounds}};
 
-fn get_projection_matrix(window: &PWindow) -> glm::Mat4 {
-    let (width, height) = window.get_size();
-    unsafe { gl::Viewport(0, 0, width, height); }
+fn get_window_size(window: &PWindow) -> glm::Vec2 {
+    let (x, y) = window.get_size();
+    return glm::vec2(x as f32, y as f32);
+}
 
-    let ratio = width as f32 / height as f32;
+fn get_projection_matrix(window_size: glm::Vec2) -> glm::Mat4 {
+    let ratio = window_size.x / window_size.y;
 
-    let projection = if width > height {
+    let projection = if window_size.x > window_size.y {
         glm::ortho(-ratio, ratio, -1.0, 1.0, -1.0, 1.0)
     } else {
-        let inv_ratio = height as f32 / width as f32;
+        let inv_ratio = window_size.y / window_size.x;
         glm::ortho(-1.0, 1.0, -inv_ratio, inv_ratio, -1.0, 1.0)
     };
 
     return projection;
+}
+
+fn get_mouse_pos(window: &PWindow, window_size: glm::Vec2, i_projection_matrix: &glm::Mat4) -> glm::Vec2 {
+    let (x, y) = window.get_cursor_pos();
+    return screen_pos_to_world_pos(glm::vec2(x as f32, y as f32), window_size, i_projection_matrix);
 }
 
 const HOVER: &'static [u8] = include_bytes!("../res/sounds/hover.wav");
@@ -47,14 +54,18 @@ impl SoundLibrary {
     }
 }
 
+#[allow(dead_code)]
 pub struct MainContext<'a> {
     glfw: &'a mut Glfw,
     window: &'a mut PWindow,
     events: &'a mut GlfwReceiver<(f64, WindowEvent)>,
     renderer: &'a Renderer,
     proj_matrix: Mat4,
+    i_proj_matrix: Mat4,
     now: std::time::Instant,
     sound_library: &'a SoundLibrary,
+    window_size: glm::Vec2,
+    mouse_pos: glm::Vec2,
 }
 
 fn main() {
@@ -64,44 +75,56 @@ fn main() {
     
     let sound_library = SoundLibrary::new().unwrap();
 
-    // let fonts = Fonts::new(renderer);
-    // let free_mono = fonts.new_font(renderer, include_bytes!("../res/fonts/FreeMono.ttf")).unwrap();
-    // let draw_buffer = free_mono.create_text_vbo(renderer, &[
-    //     TextRenderConfig::new(
-    //         "abcdefghijklmnopqrtuvwxyz",
-    //         glm::vec2(0.0, 0.0),
-    //         0.08
-    //     ),
-    //     TextRenderConfig::new(
-    //         "0123456789",
-    //         glm::vec2(-1.0, 1.0),
-    //         0.1
-    //     ).with_mode(PositionMode::TopLeft),
-    //     TextRenderConfig::new(
-    //         "ABCDEFGHIJKLMNOPQRSTUVWXYZ",
-    //         glm::vec2(1.0, -1.0),
-    //         0.08
-    //     ).with_mode(PositionMode::BottomRight),
-    // ]);
+    let fonts = Fonts::new(renderer);
+    let deja_vu_sans = fonts.new_font(renderer, include_bytes!("../res/fonts/DejaVuSans.ttf")).unwrap();
 
-    let mut current_scene: Box<dyn Scene> = Box::new(Playing::new(renderer));
+    let draw_buffer = deja_vu_sans.create_text_vbo(renderer, &[
+        TextRenderConfig::new(
+            "abcdefghijklmnopqrstuvwxyz",
+            glm::vec2(0.0, 0.0),
+            0.08,
+            glm::vec4(20, 10, 50, 255),
+        ),
+        TextRenderConfig::new(
+            "0123456789",
+            glm::vec2(-1.0, 1.0),
+            0.1,
+            glm::vec4(20, 100, 50, 255),
+        ).with_mode(PositionMode::TopLeft),
+        TextRenderConfig::new(
+            "ABCDEFGHIJKLMNOPQRSTUVWXYZ",
+            glm::vec2(1.0, -1.0),
+            0.08,
+            glm::vec4(200, 10, 50, 255),
+        ).with_mode(PositionMode::BottomRight),
+    ]);
+
+    let mut current_scene: Box<dyn Scene> = Box::new(MainMenu::new(renderer));
 
     while !window.should_close() {
         
-        let proj_matrix = get_projection_matrix(window);
+        let window_size = get_window_size(window);
+        unsafe { gl::Viewport(0, 0, window_size.x as i32, window_size.y as i32); }
+
+        let proj_matrix = get_projection_matrix(window_size);
+        let i_proj_matrix = glm::inverse(&proj_matrix);
+        let mouse_pos = get_mouse_pos(window, window_size, &i_proj_matrix);
 
         let mut main_context = MainContext {
             glfw, window, events, renderer,
-            proj_matrix: proj_matrix,
+            proj_matrix,
+            i_proj_matrix,
             now: time::Instant::now(),
-            sound_library: &sound_library
+            sound_library: &sound_library,
+            window_size,
+            mouse_pos,
         };
 
         current_scene.as_mut().handle_input(&mut main_context);
         current_scene.as_mut().game_logic(&mut main_context);
         current_scene.as_mut().generate_output(&mut main_context);
 
-        // fonts.draw_buffer(&draw_buffer, &proj_matrix);
+        fonts.draw_buffer(&draw_buffer, &proj_matrix);
 
         window.swap_buffers();
     }

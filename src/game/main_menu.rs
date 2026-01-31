@@ -1,52 +1,13 @@
-
 use std::time;
 
-use crate::{MainContext, game::{defs::{SPEED_GAIN_JUMPING, BIRD_RADIUS, BIRD_START_POSITION, GRAVITY, HORIZONTAL_SPEED, MAX_PIPE_CENTER_DIST, OFFSET_PIPE_DEL, PIPE_AMOUNT, PIPE_SPACE, PIPE_START_POSITION, PIPE_WIDTH, REPEATED_PIPES, SCENE_HEIGHT, SPACE_BETWEEN_PIPES}, scene::Scene}, graphics::renderer::{BlendFactor, Capability, ClearField, Renderer, atlas::{FrameInfo, TypedAtlas, UvInfo}, positioning::{BaseDimensions, PositionMode, SimpleTransform, scale_dimension}, simple_texture::{SimpleTexture, SimpleTextureRenderer}, texture::{MagFiltering, MinFiltering, TextureWrap}}};
-use glfw::{Action, Key};
-use nalgebra_glm as glm;
-use rand::{Rng, rngs::ThreadRng};
 use macros::atlas_bundle;
+use rand::{Rng, rngs::ThreadRng};
+use nalgebra_glm as glm;
+use crate::{MainContext, game::{button::Button, defs::{BIRD_START_POSITION, HORIZONTAL_SPEED, MAX_PIPE_CENTER_DIST, OFFSET_PIPE_DEL, PIPE_AMOUNT, PIPE_SPACE, PIPE_START_POSITION, PIPE_WIDTH, REPEATED_PIPES, SCENE_HEIGHT, SPACE_BETWEEN_PIPES}, scene::Scene}, graphics::renderer::{BlendFactor, Capability, ClearField, Renderer, atlas::{FrameInfo, TypedAtlas, UvInfo}, positioning::{BaseDimensions, PositionMode, SimpleTransform, scale_dimension}, simple_texture::{SimpleTexture, SimpleTextureRenderer}, texture::{MagFiltering, MinFiltering, TextureWrap}}};
 
-struct BirdFlyState {
-    current_index: u8,
-    last_change: std::time::Instant,
-}
-
-impl BirdFlyState {
-    fn new() -> Self {
-        Self {
-            current_index: 0,
-            last_change: std::time::Instant::now(),
-        }
-    }
-
-    fn update(&mut self, now: &std::time::Instant) {
-        if self.current_index == 0 {
-            return;
-        }
-
-        let delta = now.duration_since(self.last_change);
-        if delta.as_millis() > 100 {
-            self.current_index = (self.current_index + 1) % 5;
-            self.last_change = *now;
-        }
-    }
-
-    fn on_jump(&mut self, now: &std::time::Instant) {
-        self.current_index = 1;
-        self.last_change = *now;
-    }
-
-    fn get_texture_state(&self, simple_texture: &SimpleTexture<Atlas>) -> (UvInfo, glm::Vec2) {
-        simple_texture.get_frame_info(match self.current_index {
-            0 => AtlasFrame::Bird1,
-            1 | 4 => AtlasFrame::Bird2,
-            2 => AtlasFrame::Bird3,
-            3 => AtlasFrame::Bird4,
-            _ => unreachable!()
-        })
-    }
-}
+const PLAY_BUTTON_CENTER: glm::Vec2 = glm::Vec2::new(0.0, -0.2);
+const QUIT_BUTTON_CENTER: glm::Vec2 = glm::Vec2::new(0.0, -0.5);
+const BUTTON_HEIGHT: f32 = 0.2;
 
 #[derive(Debug, Clone, Copy)]
 struct Pipe {
@@ -55,21 +16,20 @@ struct Pipe {
 }
 
 #[atlas_bundle("res/textures/atlas/texture.json")]
-struct Atlas;
+pub struct Atlas;
 
-pub struct Playing<'a> {
-    position: glm::Vec2,
-    vertical_speed: f32,
+pub struct MainMenu<'a> {
+    x_offset: f32,
     simple_texture_renderer: SimpleTextureRenderer<'a>,
     simple_texture: SimpleTexture<'a, Atlas>,
-    bird_fly_state: BirdFlyState,
-    last_frame_time: std::time::Instant,
     pipes: [Pipe; PIPE_AMOUNT],
     smaller_pipe: usize,
     rng: ThreadRng,
+    last_frame_time: std::time::Instant,
+    buttons: [Button; 2],
 }
 
-impl<'a> Playing<'a> {
+impl<'a> MainMenu<'a> {
     pub fn new(renderer: &'a Renderer) -> Self {
         renderer.enable(Capability::Blend);
         renderer.blend_func(BlendFactor::SrcAlpha, BlendFactor::OneMinusSrcAlpha);
@@ -92,22 +52,24 @@ impl<'a> Playing<'a> {
         });
 
         return Self {
-            position: glm::vec2(BIRD_START_POSITION, 0.0),
-            vertical_speed: 0.5,
-            bird_fly_state: BirdFlyState::new(),
+            buttons: [
+                Button::new(PLAY_BUTTON_CENTER, BUTTON_HEIGHT, &simple_texture),
+                Button::new(QUIT_BUTTON_CENTER, BUTTON_HEIGHT, &simple_texture),
+            ],
+            x_offset: BIRD_START_POSITION,
             simple_texture_renderer,
             simple_texture,
-            last_frame_time: time::Instant::now(),
             pipes,
             smaller_pipe: 0,
-            rng
+            rng,
+            last_frame_time: time::Instant::now(),
         };
     }
 
     fn send_scene(&mut self) {
         let (scene_uv, scene_original_dimensions) = self.simple_texture.get_frame_info(AtlasFrame::Scene);
         let scene_width = scale_dimension(scene_original_dimensions, BaseDimensions::Height(SCENE_HEIGHT));
-        let scene_start_position = (-self.position.x * 0.5).rem_euclid(scene_width) - scene_width * 3.0;
+        let scene_start_position = (-self.x_offset * 0.5).rem_euclid(scene_width) - scene_width * 3.0;
 
         for offset in 0..5 {
             let scene_pos = scene_start_position + scene_width * offset as f32;
@@ -128,7 +90,7 @@ impl<'a> Playing<'a> {
         let pipe_height = scale_dimension(pipe_original_dimensions, BaseDimensions::Width(PIPE_WIDTH));
 
         for &pipe in self.pipes.iter() {
-            let position = pipe.x_position - self.position.x;
+            let position = pipe.x_position - self.x_offset;
 
             {
                 let pipe_start_pos = pipe.opening_y_position - PIPE_SPACE * 0.5;
@@ -179,81 +141,15 @@ impl<'a> Playing<'a> {
             }
         }
     }
-
-    fn send_bird(&mut self) {
-        let (uv_data, original_size) = self.bird_fly_state.get_texture_state(&self.simple_texture);
-        
-        let velocity = glm::vec2(HORIZONTAL_SPEED, self.vertical_speed);
-        let direction = glm::normalize(&velocity);
-        let up_vector = glm::vec2(-direction.y, direction.x);
-
-        self.simple_texture.add_oriented_quad(
-            glm::vec2(BIRD_START_POSITION, self.position.y),
-            PositionMode::Center,
-            original_size,
-            BaseDimensions::Height(BIRD_RADIUS * 2.0),
-            up_vector,
-            &uv_data,
-        );
-    }
-
-    fn check_collisions(&self) -> bool {
-        let bird_world_x = self.position.x + BIRD_START_POSITION;
-        let bird_center = glm::vec2(bird_world_x, self.position.y);
-    
-        return self.position.y < -1.0 || self.position.y > 1.0 ||
-            self.pipes.iter().fold(false, |prev, pipe|
-                prev || {
-                    let pipe_left = pipe.x_position - PIPE_WIDTH * 0.5;
-                    let pipe_right = pipe.x_position + PIPE_WIDTH * 0.5;
-
-                    let gap_bottom = pipe.opening_y_position - PIPE_SPACE * 0.5;
-                    let gap_top = pipe.opening_y_position + PIPE_SPACE * 0.5;
-
-                    return Self::circle_rect_collision(
-                        bird_center, BIRD_RADIUS,
-                        glm::vec2(pipe_left, -10.0),
-                        glm::vec2(pipe_right, gap_bottom),
-                    ) || Self::circle_rect_collision(
-                        bird_center, BIRD_RADIUS,
-                        glm::vec2(pipe_left, gap_top),
-                        glm::vec2(pipe_right, 10.0),
-                    );
-                }
-        );
-    }
-
-    fn circle_rect_collision(circle_center: glm::Vec2, radius: f32, rect_min: glm::Vec2, rect_max: glm::Vec2) -> bool {
-        let closest_point = glm::vec2(
-            circle_center.x.clamp(rect_min.x, rect_max.x),
-            circle_center.y.clamp(rect_min.y, rect_max.y)
-        );
-
-        let distance = glm::distance(&circle_center, &closest_point);
-        return distance < radius;
-    }
 }
 
-impl<'a> Scene for Playing<'a> {
+impl<'a> Scene for MainMenu<'a> {
     fn handle_input(&mut self, context: &mut MainContext) {
         context.glfw.poll_events();
-        for (_, event) in glfw::flush_messages(&context.events) {
-            match event {
-                glfw::WindowEvent::Key(Key::Space, _, Action::Press, _) => {
-                    self.vertical_speed += SPEED_GAIN_JUMPING;
-                    self.bird_fly_state.on_jump(&context.now);
-
-                    context.sound_library.sound_player.play(context.sound_library.jump.get());
-                }
-                _ => (),
-            }
-        }
     }
     
     fn game_logic(&mut self, context: &mut MainContext) {
-        let now = &context.now;
-
-        if self.position.x - self.pipes[self.smaller_pipe].x_position > OFFSET_PIPE_DEL {
+        if self.x_offset - self.pipes[self.smaller_pipe].x_position > OFFSET_PIPE_DEL {
             let prev_pipe = &self.pipes[self.smaller_pipe.wrapping_sub(1) % PIPE_AMOUNT];
             self.pipes[self.smaller_pipe] = Pipe {
                 x_position: prev_pipe.x_position + SPACE_BETWEEN_PIPES,
@@ -262,19 +158,15 @@ impl<'a> Scene for Playing<'a> {
             self.smaller_pipe += 1;
         }
 
-        
-        if self.check_collisions() {
-            context.window.set_should_close(true);
+        for button in self.buttons.iter_mut() {
+            button.update(context.mouse_pos);
         }
 
-
-        self.bird_fly_state.update(now);
-
+        let now = context.now;
         let delta = now.duration_since(self.last_frame_time).as_secs_f32();
-        self.last_frame_time = *now;
+        self.last_frame_time = now;
 
-        self.vertical_speed -= GRAVITY * delta;
-        self.position += glm::vec2(HORIZONTAL_SPEED, self.vertical_speed) * delta;
+        self.x_offset += HORIZONTAL_SPEED * delta;
     }
 
     fn generate_output(&mut self, context: &mut MainContext) {
@@ -283,7 +175,13 @@ impl<'a> Scene for Playing<'a> {
 
         self.send_scene();
         self.send_pipes();
-        self.send_bird();
+
+        for button in self.buttons.iter_mut() {
+            button.submit_data(&mut self.simple_texture);
+            if button.did_mouse_enter() {
+                context.sound_library.sound_player.play(context.sound_library.hover.get());
+            }
+        }
 
         self.simple_texture.send();
 

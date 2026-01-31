@@ -8,7 +8,7 @@ use syn::{
 };
 
 
-#[proc_macro_derive(GlVertex, attributes(vertex))]
+#[proc_macro_derive(GlVertex, attributes(vertex, normalized))]
 pub fn static_vertex_layout_derive(input: TokenStream) -> TokenStream {
     let input = parse_macro_input!(input as DeriveInput);
     let name = input.ident;
@@ -76,19 +76,23 @@ fn get_struct_divisor(attrs: &[Attribute]) -> u32 {
 }
 
 fn has_normalized_attr(attrs: &[Attribute]) -> bool {
-	attrs.iter().any(|attr| {
-		if attr.path().is_ident("vertex") {
-			let mut is_norm = false;
-			let _ = attr.parse_nested_meta(|meta| {
-				if meta.path.is_ident("normalized") {
-					is_norm = true;
-				}
-				Ok(())
-			});
-			return is_norm;
-		}
-		false
-	})
+    attrs.iter().any(|attr| {
+        if attr.path().is_ident("normalized") {
+            return true;
+        }
+
+        if attr.path().is_ident("vertex") {
+            let mut is_norm = false;
+            let _ = attr.parse_nested_meta(|meta| {
+                if meta.path.is_ident("normalized") {
+                    is_norm = true;
+                }
+                Ok(())
+            });
+            return is_norm;
+        }
+        false
+    })
 }
 
 

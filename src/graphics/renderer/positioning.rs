@@ -111,6 +111,22 @@ pub fn scale_dimension(original_size: glm::Vec2, base_dimension: BaseDimensions)
     }
 }
 
+pub fn screen_pos_to_world_pos(
+    screen_pos: glm::Vec2,
+    window_size: glm::Vec2,
+    i_proj_matrix: &glm::Mat4,
+) -> glm::Vec2 {
+    let width = window_size.x;
+    let height = window_size.y;
+    
+    let ndc_x = (2.0 * screen_pos.x as f32) / width as f32 - 1.0;
+    let ndc_y = 1.0 - (2.0 * screen_pos.y as f32) / height as f32;
+    let ndc_vec = glm::vec4(ndc_x, ndc_y, 0.0, 1.0);
+    let transformed = i_proj_matrix * ndc_vec;
+
+    return glm::vec2(transformed.x, transformed.y);
+}
+
 pub enum SimpleTransform {
     None,
     FlipHorizontal,

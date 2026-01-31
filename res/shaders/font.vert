@@ -3,8 +3,10 @@
 layout (location = 0) in vec2 a_bound_min;
 layout (location = 1) in vec2 a_bound_max;
 layout (location = 2) in uint a_glyph_index;
+layout (location = 3) in vec4 a_color;
 
 out vec2 v_tex_coord;
+out vec4 v_color;
 
 uniform mat4 u_projection;
 uniform sampler2D u_texture;
@@ -35,4 +37,5 @@ void main() {
 	vec2 corrected_offset = vec2(offset.x, 1.0 - offset.y);
 
 	v_tex_coord = (base_pixel + corrected_offset * float(u_glyph_size)) / vec2(atlas_size);
+	v_color = a_color;
 }
