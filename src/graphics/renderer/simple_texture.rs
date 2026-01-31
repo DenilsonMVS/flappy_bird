@@ -1,8 +1,8 @@
 use vertex_derive::{GlVertex, program_interface};
 use nalgebra_glm as glm;
-use crate::graphics::renderer::{Renderer, atlas::{Atlas, UvInfo}, buffer::{Buffer, Dynamic}, drawable::DrawMode, positioning::{BaseDimensions, PositionMode, generate_oriented_box}, program::{Program, ShaderType}, texture::{MagFiltering, MinFiltering, Texture, TextureWrap}, uniform::UniformValue, vertex_array_object::{FieldType, StaticVertexLayout, VertexArrayObject}};
+use crate::graphics::renderer::{Renderer, atlas::{Atlas, UvInfo}, buffer::{Buffer, Dynamic}, drawable::DrawMode, positioning::{BaseDimensions, PositionMode, SimpleTransform, generate_box, generate_oriented_box}, program::{Program, ShaderType}, texture::{MagFiltering, MinFiltering, Texture, TextureWrap}, uniform::UniformValue, vertex_array_object::{FieldType, StaticVertexLayout, VertexArrayObject}};
 
-const QUADS_PER_RENDER: usize = 1 << 20;
+const QUADS_PER_RENDER: usize = 1 << 10;
 
 #[repr(C)]
 #[derive(GlVertex, Debug)]
@@ -98,6 +98,67 @@ impl<'a> SimpleTexture<'a> {
             frame_info.to_uv(&self.atlas.get_dimensions()),
             glm::vec2(frame_info.width as f32, frame_info.height as f32),
         ));
+    }
+
+    pub fn add_quad(&mut self,
+        position: glm::Vec2,
+        position_mode: PositionMode,
+        original_size: glm::Vec2,
+        base_dimension: BaseDimensions,
+        uv_data: &UvInfo,
+    ) {
+        let simple_box = generate_box(position, position_mode, original_size, base_dimension);
+
+        self.staging_area.push(TextureVertex {
+            top_left: glm::vec2(simple_box.min.x, simple_box.max.y),
+            top_right: glm::vec2(simple_box.max.x, simple_box.max.y),
+            bot_left: glm::vec2(simple_box.min.x, simple_box.min.y),
+            bot_right: glm::vec2(simple_box.max.x, simple_box.min.y),
+            uv_min: uv_data.min,
+            uv_max: uv_data.max,
+        });
+    }
+
+    pub fn add_quad_simple_transform(&mut self,
+        position: glm::Vec2,
+        position_mode: PositionMode,
+        original_size: glm::Vec2,
+        base_dimension: BaseDimensions,
+        uv_data: &UvInfo,
+        transform: SimpleTransform,
+    ) {
+        let simple_box = generate_box(position, position_mode, original_size, base_dimension);
+
+        let (l, r) = (simple_box.min.x, simple_box.max.x);
+        let (b, t) = (simple_box.min.y, simple_box.max.y);
+
+        let (tl, tr, bl, br) = match transform {
+            SimpleTransform::None => (
+                glm::vec2(l, t), glm::vec2(r, t),
+                glm::vec2(l, b), glm::vec2(r, b),
+            ),
+            SimpleTransform::FlipHorizontal => (
+                glm::vec2(r, t), glm::vec2(l, t),
+                glm::vec2(r, b), glm::vec2(l, b),
+            ),
+            SimpleTransform::FlipVertical => (
+                glm::vec2(l, b), glm::vec2(r, b),
+                glm::vec2(l, t), glm::vec2(r, t),
+            ),
+            SimpleTransform::Rotate180 => (
+                glm::vec2(r, b), glm::vec2(l, b),
+                glm::vec2(r, t), glm::vec2(l, t),
+            )
+        };
+
+        self.staging_area.push(TextureVertex {
+            top_left: tl,
+            top_right: tr,
+            bot_left: bl,
+            bot_right: br,
+            uv_min: uv_data.min,
+            uv_max: uv_data.max,
+        });
     }
 
     pub fn add_oriented_quad(&mut self,

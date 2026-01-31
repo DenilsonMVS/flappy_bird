@@ -14,6 +14,7 @@ pub enum BaseDimensions {
     Height(f32),
 }
 
+#[derive(Debug, Clone, Copy)]
 pub struct Box {
     pub min: glm::Vec2,
     pub max: glm::Vec2,
@@ -101,4 +102,18 @@ pub fn generate_oriented_box(
         bot_left:  center - half_up - half_right,
         bot_right: center - half_up + half_right,
     };
+}
+
+pub fn scale_dimension(original_size: glm::Vec2, base_dimension: BaseDimensions) -> f32 {
+    match base_dimension {
+        BaseDimensions::Height(new_h) => (new_h / original_size.y) * original_size.x,
+        BaseDimensions::Width(new_w) => (new_w / original_size.x) * original_size.y,
+    }
+}
+
+pub enum SimpleTransform {
+    None,
+    FlipHorizontal,
+    FlipVertical,
+    Rotate180,
 }
