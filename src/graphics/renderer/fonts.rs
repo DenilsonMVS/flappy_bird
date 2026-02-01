@@ -7,7 +7,7 @@ use crate::graphics::renderer::{
     Renderer, 
     buffer::{self, Buffer, Dynamic, Static}, 
     drawable::DrawMode, 
-    positioning::{BaseDimensions, PositionMode, generate_box, vec_to_short}, 
+    positioning::{BaseDimensions, PositionMode, SCALE_FACTOR, generate_box, vec_to_short}, 
     program::{Program, ShaderType}, 
     texture::Texture, 
     uniform::UniformValue, 
@@ -27,13 +27,6 @@ pub struct GlyphAttrs {
     #[normalized]
     pub color: glm::U8Vec3,
     pub character_idx: u8,
-    
-    // pub bound_min: glm::Vec2,
-    // pub bound_max: glm::Vec2,
-    // pub character_idx: u32,
-    
-    // #[normalized]
-    // pub color: glm::U8Vec4,
 }
 
 #[derive(Clone, Copy, Default)]
@@ -53,6 +46,7 @@ struct FontProgram {
     u_px_range: f32,
     u_glyph_size: u32,
     u_glyph_margin: u32,
+    u_world_scale: f32,
 }
 
 pub struct Fonts<'a> {
@@ -68,6 +62,7 @@ impl<'a> Fonts<'a> {
         font_program.set_u_px_range(&PX_RANGE);
         font_program.set_u_glyph_size(&(GLYPH_SIZE as u32));
         font_program.set_u_glyph_margin(&(GLYPYH_MARGIN as u32));
+        font_program.set_u_world_scale(&(1.0 / SCALE_FACTOR));
 
         return Self {
             font_program,

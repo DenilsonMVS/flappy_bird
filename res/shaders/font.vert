@@ -12,8 +12,7 @@ uniform mat4 u_projection;
 uniform sampler2D u_texture;
 uniform uint u_glyph_size;
 uniform uint u_glyph_margin;
-
-const float WORLD_SCALE = 4.0 / 32767.0;
+uniform float u_world_scale;
 
 const vec2 OFFSETS[4] = vec2[](
 	vec2(0.0, 0.0),
@@ -25,8 +24,8 @@ const vec2 OFFSETS[4] = vec2[](
 void main() {
 	vec2 offset = OFFSETS[gl_VertexID % 4];
 
-	vec2 min_pos = vec2(a_bound_min) * WORLD_SCALE;
-    vec2 max_pos = vec2(a_bound_max) * WORLD_SCALE;
+	vec2 min_pos = vec2(a_bound_min) * u_world_scale;
+    vec2 max_pos = vec2(a_bound_max) * u_world_scale;
 
 	vec2 pos = mix(min_pos, max_pos, offset);
     gl_Position = u_projection * vec4(pos, 0.0, 1.0);
