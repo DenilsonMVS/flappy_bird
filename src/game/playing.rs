@@ -1,7 +1,7 @@
 
 use std::time::{self, Duration};
 
-use crate::{Atlas, AtlasFrame, MainContext, NextScene, game::{defs::{BIRD_RADIUS, BIRD_START_POSITION, GRAVITY, HORIZONTAL_SPEED, MAX_PIPE_CENTER_DIST, OFFSET_PIPE_DEL, PIPE_AMOUNT, PIPE_SPACE, PIPE_START_POSITION, PIPE_WIDTH, REPEATED_PIPES, SCENE_HEIGHT, SPACE_BETWEEN_PIPES, SPEED_GAIN_JUMPING}, scene::Scene}, graphics::renderer::{ClearField, atlas::UvInfo, positioning::{BaseDimensions, PositionMode, SimpleTransform, scale_dimension}, simple_texture::SimpleTexture}};
+use crate::{Atlas, AtlasFrame, MainContext, NextScene, game::{defs::{BIRD_RADIUS, BIRD_START_POSITION, GRAVITY, HORIZONTAL_SPEED, MAX_PIPE_CENTER_DIST, OFFSET_PIPE_DEL, PIPE_AMOUNT, PIPE_SPACE, PIPE_START_POSITION, PIPE_WIDTH, REPEATED_PIPES, SCENE_HEIGHT, SPACE_BETWEEN_PIPES, SPEED_GAIN_JUMPING}, scene::Scene}, graphics::renderer::{ClearField, atlas::UvInfo, fonts::{Font, TextRenderConfig}, positioning::{BaseDimensions, PositionMode, SimpleTransform, scale_dimension}, simple_texture::SimpleTexture}};
 use glfw::{Action, Key};
 use nalgebra_glm as glm;
 use rand::{Rng, rngs::ThreadRng};
@@ -85,6 +85,22 @@ impl Playing {
             rng,
             time_to_change_scene: None
         };
+    }
+
+    fn calculate_score(&self) -> usize {
+        ((self.position.x - PIPE_START_POSITION) / SPACE_BETWEEN_PIPES).max(0.0) as usize
+    }
+
+    fn send_text(&mut self, font: &mut Font) {
+        let score = self.calculate_score();
+        let score_text= format!("Score: {}", score);
+        font.add_text(&TextRenderConfig {
+            position: glm::vec2(1.0, -1.0),
+            text: &score_text,
+            color: glm::vec4(30u8, 15u8, 80u8, 255u8),
+            line_height: 0.25,
+            position_mode: PositionMode::BottomRight,
+        });
     }
 
     fn send_scene(&mut self, simple_texture: &mut SimpleTexture<Atlas>) {
@@ -274,6 +290,10 @@ impl Scene for Playing {
         let renderer = context.renderer;
         let projection_matrix = &context.proj_matrix;
         let simple_texture = &mut context.texture_library.simple_texture;
+        let font = &mut context.font_library.deja_vu_sans;
+
+        self.send_text(font);
+        font.send();
 
         self.send_scene(simple_texture);
         self.send_pipes(simple_texture);
@@ -283,5 +303,6 @@ impl Scene for Playing {
 
         renderer.clear(&[ClearField::Color]);
         context.texture_library.simple_texture_renderer.draw(projection_matrix, simple_texture);
+        context.font_library.fonts.draw(font, projection_matrix);
     }
 }

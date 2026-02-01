@@ -107,11 +107,11 @@ pub struct MainContext<'a, 'b> {
     pub events: &'b mut GlfwReceiver<(f64, WindowEvent)>,
     pub next_scene: &'b mut Option<NextScene>,
     pub texture_library: &'b mut TextureLibrary<'a>,
+    pub font_library: &'b mut FontLibrary<'a>,
 
     // 'a long lifetime
     pub renderer: &'a Renderer,
     pub sound_library: &'a SoundLibrary,
-    pub font_library: &'a FontLibrary<'a>,
     
     pub proj_matrix: Mat4,
     pub i_proj_matrix: Mat4,
@@ -126,7 +126,7 @@ fn main() {
     let (glfw, window, events, renderer) = setup.get();
     
     let sound_library = SoundLibrary::new().unwrap();
-    let font_library= FontLibrary::new(renderer).unwrap();
+    let mut font_library= FontLibrary::new(renderer).unwrap();
     let mut texture_library = TextureLibrary::new(renderer).unwrap();
 
     let mut current_scene: Box<dyn Scene> = Box::new(MainMenu::new(renderer, &font_library, &texture_library));
@@ -159,7 +159,7 @@ fn main() {
             sound_library: &sound_library,
             window_size,
             mouse_pos,
-            font_library: &font_library,
+            font_library: &mut font_library,
             texture_library: &mut texture_library,
         };
 

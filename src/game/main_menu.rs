@@ -24,10 +24,10 @@ pub struct MainMenu<'a> {
 }
 
 impl<'a> MainMenu<'a> {
-    pub fn new(renderer: &'a Renderer, font_library: &'a FontLibrary, texture_library: &TextureLibrary) -> Self {
+    pub fn new(renderer: &'a Renderer, font_library: &FontLibrary, texture_library: &TextureLibrary) -> Self {
         renderer.enable(Capability::Blend);
         renderer.blend_func(BlendFactor::SrcAlpha, BlendFactor::OneMinusSrcAlpha);
-        renderer.clear_color(&glm::Vec4::new(0.1, 0.2, 0.3, 0.0)); 
+        renderer.clear_color(&glm::vec4(0.1, 0.2, 0.3, 0.0)); 
         
         let mut rng = rand::rng();
         let pipes: [Pipe; PIPE_AMOUNT] = std::array::from_fn(|idx| {
@@ -206,6 +206,6 @@ impl<'a> Scene for MainMenu<'a> {
 
         renderer.clear(&[ClearField::Color]);
         context.texture_library.simple_texture_renderer.draw(projection_matrix, simple_texture);
-        context.font_library.fonts.draw_buffer(&self.font_buf, &context.proj_matrix);
+        context.font_library.fonts.draw_buffer(&context.font_library.deja_vu_sans, &self.font_buf, &context.proj_matrix);
     }
 }

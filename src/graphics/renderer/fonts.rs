@@ -5,7 +5,7 @@ use ttf_parser::Face;
 use macros::{GlVertex, program_interface};
 use crate::graphics::renderer::{
     Renderer, 
-    buffer::{self, Buffer, Static}, 
+    buffer::{self, Buffer, Dynamic, Static}, 
     drawable::DrawMode, 
     positioning::{BaseDimensions, PositionMode, generate_box}, 
     program::{Program, ShaderType}, 
@@ -14,6 +14,8 @@ use crate::graphics::renderer::{
     vertex_array_object::{FieldType, StaticVertexLayout, VertexArrayObject}
 };
 use nalgebra_glm as glm;
+
+const GLYPHS_PER_RENDER: usize = 1 << 10;
 
 #[repr(C)]
 #[derive(GlVertex)]
@@ -70,11 +72,19 @@ impl<'a> Fonts<'a> {
         Font::from_bytes(renderer, bytes)
     }
 
-    pub fn draw_buffer(&self, buffer: &FontVbo, proj_matrix: &glm::Mat4) {
+    pub fn draw_buffer(&self, font: &Font, buffer: &FontVbo, proj_matrix: &glm::Mat4) {
         self.font_program.bind();
         self.font_program.set_u_projection(proj_matrix);
-        buffer.texture.bind_to_unit(0);
-        buffer.vao.draw_instanced(4, buffer.amount, DrawMode::TriangleFan);
+        font.texture.bind_to_unit(0);
+        buffer.vao.draw_instanced(4, buffer.amount, DrawMode::TriangleStrip);
+    }
+
+    pub fn draw(&self, font: &mut Font, proj_matrix: &glm::Mat4) {
+        self.font_program.bind();
+        self.font_program.set_u_projection(proj_matrix);
+        font.texture.bind_to_unit(0);
+        font.vao.draw_instanced(4, font.staging_area.len() as i32, DrawMode::TriangleStrip);
+        font.staging_area.clear();
     }
 }
 
@@ -82,7 +92,6 @@ pub struct FontVbo<'a> {
     _vbo: Buffer<'a, GlyphAttrs, buffer::Static>,
     vao: VertexArrayObject<'a>,
     amount: i32,
-    texture: &'a Texture<'a>,
 }
 
 pub struct Font<'a> {
@@ -90,6 +99,9 @@ pub struct Font<'a> {
     glyphs: [GlyphInfo; WESTERN_CHAR_COUNT],
     ascender: f32,
     descender: f32,
+    staging_area: Vec<GlyphAttrs>,
+    vbo: Buffer<'a, GlyphAttrs, buffer::Dynamic>,
+    vao: VertexArrayObject<'a>,
 }
 
 const fn map_char_to_index(c: char) -> Option<usize> {
@@ -219,12 +231,17 @@ impl<'a> Font<'a> {
         }
 
         let texture = Texture::from_font_raw(renderer, raw_image_data.as_slice(), ATLAS_WIDTH);
+        let vbo = Buffer::<GlyphAttrs, Dynamic>::new(renderer, GLYPHS_PER_RENDER);
+        let vao = VertexArrayObject::new(renderer, &[&vbo]);
 
         return Some(Self {
             texture,
             glyphs,
             ascender: font.ascender() as f32,
             descender: font.descender() as f32,
+            staging_area: Vec::with_capacity(GLYPHS_PER_RENDER),
+            vbo,
+            vao,
         });
     }
 
@@ -232,7 +249,51 @@ impl<'a> Font<'a> {
         self.texture.bind_to_unit(unit);
     }
 
-    pub fn create_text_vbo(&'a self, renderer: &'a Renderer, rendered_text: &[TextRenderConfig<'a>]) -> FontVbo<'a> {
+    pub fn send(&mut self) {
+        self.vbo.set_sub_data(&self.staging_area, 0);
+    }
+
+    pub fn add_text(&mut self, text: &TextRenderConfig) {
+        let font_height = self.ascender - self.descender;
+        let total_width = text.text.chars().fold(0.0f32, |acc, c| {
+            if let Some(idx) = map_char_to_index(c) {
+                acc + self.glyphs[idx].advance
+            } else {
+                acc
+            }
+        });
+
+        let text_block_box = generate_box(
+            text.position,
+            text.position_mode,
+            glm::vec2(total_width, font_height),
+            BaseDimensions::Height(text.line_height),
+        );
+
+        let scale = text.line_height / font_height;
+        let mut cursor_x = text_block_box.min.x;
+        let baseline_y = text_block_box.min.y - (self.descender * scale);
+
+        for c in text.text.chars() {
+            if let Some(idx) = map_char_to_index(c) {
+                let info = &self.glyphs[idx];
+                
+                let min_pos = glm::vec2(cursor_x, baseline_y) + info.bound_min * scale;
+                let max_pos = glm::vec2(cursor_x, baseline_y) + info.bound_max * scale;
+
+                self.staging_area.push(GlyphAttrs {
+                    bound_min: min_pos,
+                    bound_max: max_pos,
+                    character_idx: idx as u32,
+                    color: text.color
+                });
+
+                cursor_x += info.advance * scale;
+            }
+        }
+    }
+
+    pub fn create_text_vbo<'b>(&self, renderer: &'b Renderer, rendered_text: &[TextRenderConfig]) -> FontVbo<'b> {
         let mut glyph_buffer_data = Vec::with_capacity(
             rendered_text.iter().fold(0usize, |prev, cur| prev + cur.text.len())
         );
@@ -284,8 +345,7 @@ impl<'a> Font<'a> {
         FontVbo {
             _vbo: vbo,
             vao,
-            amount: glyph_buffer_data.len() as i32,
-            texture: &self.texture
+            amount: glyph_buffer_data.len() as i32
         }
     }
 }
