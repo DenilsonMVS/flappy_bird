@@ -246,7 +246,7 @@ pub fn atlas_bundle(attr: TokenStream, item: TokenStream) -> TokenStream {
         }
 
         #vis struct #struct_name {
-            pub dimensions: nalgebra_glm::U32Vec2,
+            pub dimensions: nalgebra_glm::U16Vec2,
             pub frames: #fields_struct_name,
         }
 
@@ -265,20 +265,20 @@ pub fn atlas_bundle(attr: TokenStream, item: TokenStream) -> TokenStream {
                 )*
 
                 Ok(Self {
-                    dimensions: nalgebra_glm::U32Vec2::new(max_w, max_h),
+                    dimensions: nalgebra_glm::U16Vec2::new(max_w, max_h),
                     frames: f,
                 })
             }
 
-            fn get_info(&self, frame: Self::Frame) -> (UvInfo, nalgebra_glm::Vec2) {
+            fn get_info(&self, frame: Self::Frame) -> UvInfo {
                 let f = match frame {
                     #(#enum_name::#variant_idents => &self.frames.#field_idents),*
                 };
                 
-                (f.to_uv(&self.dimensions), nalgebra_glm::vec2(f.width as f32, f.height as f32))
+                f.to_uv()
             }
 
-            fn dimensions(&self) -> nalgebra_glm::U32Vec2 {
+            fn dimensions(&self) -> nalgebra_glm::U16Vec2 {
                 self.dimensions
             }
         }

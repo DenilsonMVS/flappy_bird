@@ -37,7 +37,7 @@ impl BirdFlyState {
         self.last_change = *now;
     }
 
-    fn get_texture_state(&self, simple_texture: &SimpleTexture<Atlas>) -> (UvInfo, glm::Vec2) {
+    fn get_texture_state(&self, simple_texture: &SimpleTexture<Atlas>) -> UvInfo {
         simple_texture.get_frame_info(match self.current_index {
             0 => AtlasFrame::Bird1,
             1 | 4 => AtlasFrame::Bird2,
@@ -104,7 +104,8 @@ impl Playing {
     }
 
     fn send_scene(&mut self, simple_texture: &mut SimpleTexture<Atlas>) {
-        let (scene_uv, scene_original_dimensions) = simple_texture.get_frame_info(AtlasFrame::Scene);
+        let scene_uv = simple_texture.get_frame_info(AtlasFrame::Scene);
+        let scene_original_dimensions = scene_uv.get_original_dimensions();
         let scene_width = scale_dimension(scene_original_dimensions, BaseDimensions::Height(SCENE_HEIGHT));
         let scene_start_position = (-self.position.x * 0.5).rem_euclid(scene_width) - scene_width * 3.0;
 
@@ -113,7 +114,6 @@ impl Playing {
             simple_texture.add_quad(
                 glm::vec2(scene_pos, 1.0),
                 PositionMode::TopLeft,
-                scene_original_dimensions,
                 BaseDimensions::Height(SCENE_HEIGHT),
                 &scene_uv,
             );
@@ -121,8 +121,10 @@ impl Playing {
     }
 
     fn send_pipes(&mut self, simple_texture: &mut SimpleTexture<Atlas>) {
-        let (pipe_entrance_uv, pipe_entrance_original_dimensions) = simple_texture.get_frame_info(AtlasFrame::TopCano);
-        let (pipe_uv, pipe_original_dimensions) = simple_texture.get_frame_info(AtlasFrame::Cano);
+        let pipe_entrance_uv = simple_texture.get_frame_info(AtlasFrame::TopCano);
+        let pipe_entrance_original_dimensions = pipe_entrance_uv.get_original_dimensions();
+        let pipe_uv = simple_texture.get_frame_info(AtlasFrame::Cano);
+        let pipe_original_dimensions = pipe_uv.get_original_dimensions();
         let pipe_entrance_height = scale_dimension(pipe_entrance_original_dimensions, BaseDimensions::Width(PIPE_WIDTH));
         let pipe_height = scale_dimension(pipe_original_dimensions, BaseDimensions::Width(PIPE_WIDTH));
 
@@ -135,7 +137,6 @@ impl Playing {
                 simple_texture.add_quad(
                     glm::vec2(position, pipe_start_pos),
                     PositionMode::TopCenter,
-                    pipe_entrance_original_dimensions,
                     BaseDimensions::Width(PIPE_WIDTH),
                     &pipe_entrance_uv
                 );
@@ -145,7 +146,6 @@ impl Playing {
                     simple_texture.add_quad(
                         glm::vec2(position, pipe_y_pos),
                         PositionMode::TopCenter,
-                        pipe_original_dimensions,
                         BaseDimensions::Width(PIPE_WIDTH),
                         &pipe_uv
                     );
@@ -158,7 +158,6 @@ impl Playing {
                 simple_texture.add_quad_simple_transform(
                     glm::vec2(position, pipe.opening_y_position + PIPE_SPACE * 0.5),
                     PositionMode::BottomCenter,
-                    pipe_entrance_original_dimensions,
                     BaseDimensions::Width(PIPE_WIDTH),
                     &pipe_entrance_uv,
                     SimpleTransform::FlipVertical
@@ -169,7 +168,6 @@ impl Playing {
                     simple_texture.add_quad_simple_transform(
                         glm::vec2(position, pipe_y_pos),
                         PositionMode::BottomCenter,
-                        pipe_original_dimensions,
                         BaseDimensions::Width(PIPE_WIDTH),
                         &pipe_uv,
                         SimpleTransform::FlipVertical
@@ -180,7 +178,8 @@ impl Playing {
     }
 
     fn send_bird(&mut self, simple_texture: &mut SimpleTexture<Atlas>) {
-        let (uv_data, original_size) = self.bird_fly_state.get_texture_state(simple_texture);
+        let uv_data = self.bird_fly_state.get_texture_state(simple_texture);
+        let original_size = uv_data.get_original_dimensions();
         
         let velocity = glm::vec2(HORIZONTAL_SPEED, self.vertical_speed);
         let direction = glm::normalize(&velocity);

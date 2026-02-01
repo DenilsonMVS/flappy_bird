@@ -1,6 +1,6 @@
 use macros::{GlVertex, program_interface};
 use nalgebra_glm as glm;
-use crate::graphics::renderer::{Renderer, atlas::{TypedAtlas, UvInfo}, buffer::{Buffer, Dynamic}, drawable::DrawMode, positioning::{BaseDimensions, PositionMode, SimpleTransform, generate_box, generate_oriented_box}, program::{Program, ShaderType}, texture::{MagFiltering, MinFiltering, Texture, TextureWrap}, uniform::UniformValue, vertex_array_object::{FieldType, StaticVertexLayout, VertexArrayObject}};
+use crate::graphics::renderer::{Renderer, atlas::{TypedAtlas, UvInfo}, buffer::{Buffer, Dynamic}, drawable::DrawMode, positioning::{BaseDimensions, PositionMode, SCALE_FACTOR, SimpleTransform, f32_to_short, generate_box, generate_oriented_box, vec_to_short}, program::{Program, ShaderType}, texture::{MagFiltering, MinFiltering, Texture, TextureWrap}, uniform::UniformValue, vertex_array_object::{FieldType, StaticVertexLayout, VertexArrayObject}};
 use anyhow::Result;
 
 const QUADS_PER_RENDER: usize = 1 << 10;
@@ -9,12 +9,12 @@ const QUADS_PER_RENDER: usize = 1 << 10;
 #[derive(GlVertex, Debug)]
 #[vertex(divisor = 1)]
 struct TextureVertex {
-    top_left: glm::Vec2,
-    top_right: glm::Vec2,
-    bot_left: glm::Vec2,
-    bot_right: glm::Vec2,
-    uv_min: glm::Vec2,
-    uv_max: glm::Vec2,
+    top_left: glm::I16Vec2,
+    top_right: glm::I16Vec2,
+    bot_left: glm::I16Vec2,
+    bot_right: glm::I16Vec2,
+    uv_min: glm::U16Vec2,
+    uv_max: glm::U16Vec2,
 }
 
 #[program_interface(
@@ -24,6 +24,7 @@ struct TextureVertex {
 struct TextureProgram {
     u_projection: glm::Mat4,
     u_texture: i32,
+    u_world_scale: f32,
 }
 
 pub struct SimpleTextureRenderer<'a> {
@@ -34,6 +35,7 @@ impl<'a> SimpleTextureRenderer<'a> {
     pub fn new(renderer: &'a Renderer) -> Self {
         let program = TextureProgram::init(renderer).unwrap();
         program.set_u_texture(&0);
+        program.set_u_world_scale(&(1.0 / SCALE_FACTOR));
 
         return Self { program };
     }
@@ -93,24 +95,24 @@ impl<'a, Atlas: TypedAtlas> SimpleTexture<'a, Atlas> {
         self.staging_area.clear();
     }
 
-    pub fn get_frame_info(&self, frame: Atlas::Frame) -> (UvInfo, glm::Vec2) {
+    pub fn get_frame_info(&self, frame: Atlas::Frame) -> UvInfo {
         self.atlas.get_info(frame)
     }
 
     pub fn add_quad(&mut self,
         position: glm::Vec2,
         position_mode: PositionMode,
-        original_size: glm::Vec2,
         base_dimension: BaseDimensions,
         uv_data: &UvInfo,
     ) {
+        let original_size = uv_data.get_original_dimensions();
         let simple_box = generate_box(position, position_mode, original_size, base_dimension);
 
         self.staging_area.push(TextureVertex {
-            top_left: glm::vec2(simple_box.min.x, simple_box.max.y),
-            top_right: glm::vec2(simple_box.max.x, simple_box.max.y),
-            bot_left: glm::vec2(simple_box.min.x, simple_box.min.y),
-            bot_right: glm::vec2(simple_box.max.x, simple_box.min.y),
+            top_left: vec_to_short(&glm::vec2(simple_box.min.x, simple_box.max.y)),
+            top_right: vec_to_short(&glm::vec2(simple_box.max.x, simple_box.max.y)),
+            bot_left: vec_to_short(&glm::vec2(simple_box.min.x, simple_box.min.y)),
+            bot_right: vec_to_short(&glm::vec2(simple_box.max.x, simple_box.min.y)),
             uv_min: uv_data.min,
             uv_max: uv_data.max,
         });
@@ -119,15 +121,15 @@ impl<'a, Atlas: TypedAtlas> SimpleTexture<'a, Atlas> {
     pub fn add_quad_simple_transform(&mut self,
         position: glm::Vec2,
         position_mode: PositionMode,
-        original_size: glm::Vec2,
         base_dimension: BaseDimensions,
         uv_data: &UvInfo,
         transform: SimpleTransform,
     ) {
+        let original_size = uv_data.get_original_dimensions();
         let simple_box = generate_box(position, position_mode, original_size, base_dimension);
 
-        let (l, r) = (simple_box.min.x, simple_box.max.x);
-        let (b, t) = (simple_box.min.y, simple_box.max.y);
+        let (l, r) = (f32_to_short(simple_box.min.x), f32_to_short(simple_box.max.x));
+        let (b, t) = (f32_to_short(simple_box.min.y), f32_to_short(simple_box.max.y));
 
         let (tl, tr, bl, br) = match transform {
             SimpleTransform::None => (
@@ -170,10 +172,10 @@ impl<'a, Atlas: TypedAtlas> SimpleTexture<'a, Atlas> {
             position, position_mode, original_size, base_dimension, up_vector);
 
         self.staging_area.push(TextureVertex {
-            top_left: oriented_box.top_left,
-            top_right: oriented_box.top_right,
-            bot_left: oriented_box.bot_left,
-            bot_right: oriented_box.bot_right,
+            top_left: vec_to_short(&oriented_box.top_left),
+            top_right: vec_to_short(&oriented_box.top_right),
+            bot_left: vec_to_short(&oriented_box.bot_left),
+            bot_right: vec_to_short(&oriented_box.bot_right),
             uv_min: uv_data.min,
             uv_max: uv_data.max,
         });

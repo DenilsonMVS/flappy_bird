@@ -85,6 +85,11 @@ impl GlType for glm::U8Vec4 {
     const FIELD_TYPE_SIZE: i32 = 4;
 }
 
+impl GlType for glm::U16Vec2 {
+	const ENUM: GlTypeEnum = GlTypeEnum::UnsignedShort;
+    const FIELD_TYPE_SIZE: i32 = 2;
+}
+
 impl GlType for glm::I16Vec2 {
 	const ENUM: GlTypeEnum = GlTypeEnum::Short;
     const FIELD_TYPE_SIZE: i32 = 2;

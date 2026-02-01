@@ -5,38 +5,37 @@ use anyhow::Result;
 
 #[derive(Debug, Clone, Copy, Serialize, Deserialize)]
 pub struct FrameInfo {
-    pub x: u32,
-    pub y: u32,
-    pub width: u32,
-    pub height: u32,
+    pub x: u16,
+    pub y: u16,
+    pub width: u16,
+    pub height: u16,
 }
 
 impl FrameInfo {
-    pub fn to_uv(&self, texture_dim: &glm::U32Vec2) -> UvInfo {
-        let to_f32 = |x| x as f32;
-
+    pub fn to_uv(&self) -> UvInfo {
         let min = glm::vec2(self.x, self.y);
         let frame_size = glm::vec2(self.width, self.height);
         let max = min + frame_size;
 
-        let texture_dim = texture_dim.map(to_f32);
-
-        return UvInfo {
-            min: min.map(to_f32).component_div(&texture_dim),
-            max: max.map(to_f32).component_div(&texture_dim),
-        };
+        return UvInfo { min, max };
     }
 }
 
 #[derive(Debug, Clone, Copy)]
 pub struct UvInfo {
-    pub min: glm::Vec2,
-    pub max: glm::Vec2,
+    pub min: glm::U16Vec2,
+    pub max: glm::U16Vec2,
+}
+
+impl UvInfo {
+    pub fn get_original_dimensions(&self) -> glm::Vec2 {
+        (self.max - self.min).map(|x| x as f32)
+    }
 }
 
 pub trait TypedAtlas: Sized {
     type Frame: Copy;
     fn new(bytes: &[u8]) -> Result<Self>;
-    fn get_info(&self, frame: Self::Frame) -> (UvInfo, nalgebra_glm::Vec2);
-    fn dimensions(&self) -> nalgebra_glm::U32Vec2;
+    fn get_info(&self, frame: Self::Frame) -> UvInfo;
+    fn dimensions(&self) -> nalgebra_glm::U16Vec2;
 }

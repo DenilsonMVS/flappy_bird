@@ -18,7 +18,7 @@ pub struct Button {
 
 impl Button {
     pub fn new(center: glm::Vec2, content: &'static str, content_color: glm::U8Vec3, atlas: &SimpleTexture<Atlas>) -> Self {
-        let (_, original_size) = atlas.get_frame_info(AtlasFrame::Button);
+        let original_size = atlas.get_frame_info(AtlasFrame::Button).get_original_dimensions();
         let width = scale_dimension(original_size, BaseDimensions::Height(DEFAULT_BUTTON_HEIGHT));
         return Self {
             center,
@@ -41,8 +41,8 @@ impl Button {
     }
 
     pub fn submit_data(&self, atlas: &mut SimpleTexture<Atlas>) {
-        let (uv_data_idle, _) = atlas.get_frame_info(AtlasFrame::Button);
-        let (uv_data_hover, original_size) = atlas.get_frame_info(AtlasFrame::HoverButton);
+        let uv_data_idle = atlas.get_frame_info(AtlasFrame::Button);
+        let uv_data_hover = atlas.get_frame_info(AtlasFrame::HoverButton);
         let uv_data = match self.mouse_inside {
             false => uv_data_idle,
             true => uv_data_hover
@@ -51,7 +51,6 @@ impl Button {
         atlas.add_quad(
             self.center,
             PositionMode::Center,
-            original_size,
             BaseDimensions::Height(self.dimensions.y),
             &uv_data,
         );
