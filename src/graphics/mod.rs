@@ -6,7 +6,7 @@ use std::{ffi::CStr, sync::atomic::{AtomicBool, Ordering}};
 use glfw::{Context, Glfw, GlfwReceiver, PWindow, WindowEvent, fail_on_errors};
 use nalgebra_glm as glm;
 
-
+#[cfg(debug_assertions)]
 extern "system" fn gl_debug_output(
 	source: gl::types::GLenum,
     gl_type: gl::types::GLenum,
@@ -74,6 +74,8 @@ impl Graphics {
         glfw.window_hint(glfw::WindowHint::ContextVersion(4, 6));
         glfw.window_hint(glfw::WindowHint::OpenGlProfile(glfw::OpenGlProfileHint::Core));
         glfw.window_hint(glfw::WindowHint::OpenGlForwardCompat(true));
+
+        #[cfg(debug_assertions)]
         glfw.window_hint(glfw::WindowHint::OpenGlDebugContext(true));
 
         let (mut window, events) = glfw.create_window(
@@ -95,6 +97,7 @@ impl Graphics {
             return None;
         }
 
+        #[cfg(debug_assertions)]
         unsafe {
             gl::Enable(gl::DEBUG_OUTPUT);
             gl::Enable(gl::DEBUG_OUTPUT_SYNCHRONOUS);
