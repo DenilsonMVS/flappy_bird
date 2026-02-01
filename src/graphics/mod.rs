@@ -82,7 +82,10 @@ impl Graphics {
 
         window.make_current();
         glfw.set_swap_interval(glfw::SwapInterval::Sync(1));
+        
         window.set_key_polling(true);
+        window.set_mouse_button_polling(true);
+        window.set_cursor_pos_polling(true);
 
         gl::load_with(|s| 
             window.get_proc_address(s).map_or(std::ptr::null(), |p| p as *const _)

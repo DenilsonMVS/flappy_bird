@@ -135,6 +135,7 @@ pub const ATLAS_HEIGHT: usize = ATLAS_PARAMS.0;
 pub const ATLAS_WIDTH: usize = ATLAS_PARAMS.1;
 pub const ATLAS_COLUMNS: usize = ATLAS_PARAMS.2;
 
+#[derive(Debug, Clone, Copy)]
 pub struct TextRenderConfig<'a> {
     pub text: &'a str,
     pub position: glm::Vec2,

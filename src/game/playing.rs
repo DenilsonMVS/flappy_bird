@@ -1,11 +1,11 @@
 
-use std::time;
+use std::time::{self, Duration};
 
-use crate::{MainContext, game::{defs::{SPEED_GAIN_JUMPING, BIRD_RADIUS, BIRD_START_POSITION, GRAVITY, HORIZONTAL_SPEED, MAX_PIPE_CENTER_DIST, OFFSET_PIPE_DEL, PIPE_AMOUNT, PIPE_SPACE, PIPE_START_POSITION, PIPE_WIDTH, REPEATED_PIPES, SCENE_HEIGHT, SPACE_BETWEEN_PIPES}, scene::Scene}, graphics::renderer::{BlendFactor, Capability, ClearField, Renderer, atlas::{FrameInfo, TypedAtlas, UvInfo}, positioning::{BaseDimensions, PositionMode, SimpleTransform, scale_dimension}, simple_texture::{SimpleTexture, SimpleTextureRenderer}, texture::{MagFiltering, MinFiltering, TextureWrap}}};
+use crate::{Atlas, AtlasFrame, MainContext, NextScene, game::{defs::{BIRD_RADIUS, BIRD_START_POSITION, GRAVITY, HORIZONTAL_SPEED, MAX_PIPE_CENTER_DIST, OFFSET_PIPE_DEL, PIPE_AMOUNT, PIPE_SPACE, PIPE_START_POSITION, PIPE_WIDTH, REPEATED_PIPES, SCENE_HEIGHT, SPACE_BETWEEN_PIPES, SPEED_GAIN_JUMPING}, scene::Scene}, graphics::renderer::{ClearField, atlas::UvInfo, positioning::{BaseDimensions, PositionMode, SimpleTransform, scale_dimension}, simple_texture::SimpleTexture}};
 use glfw::{Action, Key};
 use nalgebra_glm as glm;
 use rand::{Rng, rngs::ThreadRng};
-use macros::atlas_bundle;
+use rodio::Source;
 
 struct BirdFlyState {
     current_index: u8,
@@ -54,35 +54,19 @@ struct Pipe {
     opening_y_position: f32,
 }
 
-#[atlas_bundle("res/textures/atlas/texture.json")]
-struct Atlas;
-
-pub struct Playing<'a> {
+pub struct Playing {
     position: glm::Vec2,
     vertical_speed: f32,
-    simple_texture_renderer: SimpleTextureRenderer<'a>,
-    simple_texture: SimpleTexture<'a, Atlas>,
     bird_fly_state: BirdFlyState,
     last_frame_time: std::time::Instant,
+    time_to_change_scene: Option<std::time::Instant>,
     pipes: [Pipe; PIPE_AMOUNT],
     smaller_pipe: usize,
     rng: ThreadRng,
 }
 
-impl<'a> Playing<'a> {
-    pub fn new(renderer: &'a Renderer) -> Self {
-        renderer.enable(Capability::Blend);
-        renderer.blend_func(BlendFactor::SrcAlpha, BlendFactor::OneMinusSrcAlpha);
-        renderer.clear_color(&glm::Vec4::new(0.1, 0.2, 0.3, 0.0));
-
-        let simple_texture_renderer = SimpleTextureRenderer::new(renderer);
-        let simple_texture = SimpleTexture::new(
-            renderer,
-            include_bytes!("../../res/textures/atlas/texture.png"),
-            MagFiltering::Nearest, MinFiltering::Nearest, TextureWrap::ClampToBorder,
-            include_bytes!("../../res/textures/atlas/texture.json")
-        ).unwrap();
-        
+impl Playing {
+    pub fn new() -> Self {
         let mut rng = rand::rng();
         let pipes: [Pipe; PIPE_AMOUNT] = std::array::from_fn(|idx| {
             Pipe {
@@ -95,23 +79,22 @@ impl<'a> Playing<'a> {
             position: glm::vec2(BIRD_START_POSITION, 0.0),
             vertical_speed: 0.5,
             bird_fly_state: BirdFlyState::new(),
-            simple_texture_renderer,
-            simple_texture,
             last_frame_time: time::Instant::now(),
             pipes,
             smaller_pipe: 0,
-            rng
+            rng,
+            time_to_change_scene: None
         };
     }
 
-    fn send_scene(&mut self) {
-        let (scene_uv, scene_original_dimensions) = self.simple_texture.get_frame_info(AtlasFrame::Scene);
+    fn send_scene(&mut self, simple_texture: &mut SimpleTexture<Atlas>) {
+        let (scene_uv, scene_original_dimensions) = simple_texture.get_frame_info(AtlasFrame::Scene);
         let scene_width = scale_dimension(scene_original_dimensions, BaseDimensions::Height(SCENE_HEIGHT));
         let scene_start_position = (-self.position.x * 0.5).rem_euclid(scene_width) - scene_width * 3.0;
 
         for offset in 0..5 {
             let scene_pos = scene_start_position + scene_width * offset as f32;
-            self.simple_texture.add_quad(
+            simple_texture.add_quad(
                 glm::vec2(scene_pos, 1.0),
                 PositionMode::TopLeft,
                 scene_original_dimensions,
@@ -121,9 +104,9 @@ impl<'a> Playing<'a> {
         }
     }
 
-    fn send_pipes(&mut self) {
-        let (pipe_entrance_uv, pipe_entrance_original_dimensions) = self.simple_texture.get_frame_info(AtlasFrame::TopCano);
-        let (pipe_uv, pipe_original_dimensions) = self.simple_texture.get_frame_info(AtlasFrame::Cano);
+    fn send_pipes(&mut self, simple_texture: &mut SimpleTexture<Atlas>) {
+        let (pipe_entrance_uv, pipe_entrance_original_dimensions) = simple_texture.get_frame_info(AtlasFrame::TopCano);
+        let (pipe_uv, pipe_original_dimensions) = simple_texture.get_frame_info(AtlasFrame::Cano);
         let pipe_entrance_height = scale_dimension(pipe_entrance_original_dimensions, BaseDimensions::Width(PIPE_WIDTH));
         let pipe_height = scale_dimension(pipe_original_dimensions, BaseDimensions::Width(PIPE_WIDTH));
 
@@ -133,7 +116,7 @@ impl<'a> Playing<'a> {
             {
                 let pipe_start_pos = pipe.opening_y_position - PIPE_SPACE * 0.5;
 
-                self.simple_texture.add_quad(
+                simple_texture.add_quad(
                     glm::vec2(position, pipe_start_pos),
                     PositionMode::TopCenter,
                     pipe_entrance_original_dimensions,
@@ -143,7 +126,7 @@ impl<'a> Playing<'a> {
 
                 for idx in 0..REPEATED_PIPES {
                     let pipe_y_pos = pipe_start_pos - pipe_entrance_height - pipe_height * idx as f32;
-                    self.simple_texture.add_quad(
+                    simple_texture.add_quad(
                         glm::vec2(position, pipe_y_pos),
                         PositionMode::TopCenter,
                         pipe_original_dimensions,
@@ -156,7 +139,7 @@ impl<'a> Playing<'a> {
             {
                 let pipe_start_pos = pipe.opening_y_position + PIPE_SPACE * 0.5;
 
-                self.simple_texture.add_quad_simple_transform(
+                simple_texture.add_quad_simple_transform(
                     glm::vec2(position, pipe.opening_y_position + PIPE_SPACE * 0.5),
                     PositionMode::BottomCenter,
                     pipe_entrance_original_dimensions,
@@ -167,7 +150,7 @@ impl<'a> Playing<'a> {
 
                 for idx in 0..REPEATED_PIPES {
                     let pipe_y_pos = pipe_start_pos + pipe_entrance_height + pipe_height * idx as f32;
-                    self.simple_texture.add_quad_simple_transform(
+                    simple_texture.add_quad_simple_transform(
                         glm::vec2(position, pipe_y_pos),
                         PositionMode::BottomCenter,
                         pipe_original_dimensions,
@@ -180,14 +163,14 @@ impl<'a> Playing<'a> {
         }
     }
 
-    fn send_bird(&mut self) {
-        let (uv_data, original_size) = self.bird_fly_state.get_texture_state(&self.simple_texture);
+    fn send_bird(&mut self, simple_texture: &mut SimpleTexture<Atlas>) {
+        let (uv_data, original_size) = self.bird_fly_state.get_texture_state(simple_texture);
         
         let velocity = glm::vec2(HORIZONTAL_SPEED, self.vertical_speed);
         let direction = glm::normalize(&velocity);
         let up_vector = glm::vec2(-direction.y, direction.x);
 
-        self.simple_texture.add_oriented_quad(
+        simple_texture.add_oriented_quad(
             glm::vec2(BIRD_START_POSITION, self.position.y),
             PositionMode::Center,
             original_size,
@@ -234,9 +217,14 @@ impl<'a> Playing<'a> {
     }
 }
 
-impl<'a> Scene for Playing<'a> {
+impl Scene for Playing {
     fn handle_input(&mut self, context: &mut MainContext) {
         context.glfw.poll_events();
+
+        if self.time_to_change_scene.is_some() {
+            return;
+        }
+
         for (_, event) in glfw::flush_messages(&context.events) {
             match event {
                 glfw::WindowEvent::Key(Key::Space, _, Action::Press, _) => {
@@ -252,6 +240,12 @@ impl<'a> Scene for Playing<'a> {
     
     fn game_logic(&mut self, context: &mut MainContext) {
         let now = &context.now;
+        if let Some(end_time) = self.time_to_change_scene {
+            if *now > end_time {
+                *context.next_scene = Some(NextScene::MainMenu);
+            }
+            return;
+        }
 
         if self.position.x - self.pipes[self.smaller_pipe].x_position > OFFSET_PIPE_DEL {
             let prev_pipe = &self.pipes[self.smaller_pipe.wrapping_sub(1) % PIPE_AMOUNT];
@@ -260,13 +254,12 @@ impl<'a> Scene for Playing<'a> {
                 opening_y_position: self.rng.random_range(-MAX_PIPE_CENTER_DIST..MAX_PIPE_CENTER_DIST),
             };
             self.smaller_pipe += 1;
-        }
-
+        }        
         
         if self.check_collisions() {
-            context.window.set_should_close(true);
+            self.time_to_change_scene = Some(*now + Duration::from_secs(3));
+            context.sound_library.sound_player.play(context.sound_library.death.get().amplify(10.0));
         }
-
 
         self.bird_fly_state.update(now);
 
@@ -280,14 +273,15 @@ impl<'a> Scene for Playing<'a> {
     fn generate_output(&mut self, context: &mut MainContext) {
         let renderer = context.renderer;
         let projection_matrix = &context.proj_matrix;
+        let simple_texture = &mut context.texture_library.simple_texture;
 
-        self.send_scene();
-        self.send_pipes();
-        self.send_bird();
+        self.send_scene(simple_texture);
+        self.send_pipes(simple_texture);
+        self.send_bird(simple_texture);
 
-        self.simple_texture.send();
+        simple_texture.send();
 
         renderer.clear(&[ClearField::Color]);
-        self.simple_texture_renderer.draw(projection_matrix, &mut self.simple_texture);
+        context.texture_library.simple_texture_renderer.draw(projection_matrix, simple_texture);
     }
 }
