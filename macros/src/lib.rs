@@ -180,10 +180,10 @@ pub fn program_interface(args: TokenStream, input: TokenStream) -> TokenStream {
 		#item_struct
 
 		impl<'a> #name<'a> {
-			pub fn init(renderer: &'a Renderer) -> Result<Self, String> {
+			pub fn init(renderer: &'a Renderer) -> anyhow::Result<Self> {
 				let program = Program::new(renderer, &[
 					#(#shader_inits),*
-				]).ok_or_else(|| "Erro no link/compilação do programa OpenGL".to_string())?;
+				])?;
 
 				#(#field_initializers)*
 
@@ -222,8 +222,8 @@ pub fn atlas_bundle(attr: TokenStream, item: TokenStream) -> TokenStream {
 
     let root = env::var("CARGO_MANIFEST_DIR").unwrap_or_else(|_| ".".into());
     let full_path = Path::new(&root).join(&path_str);
-    let content = fs::read_to_string(&full_path).expect("Falha ao ler JSON");
-    let raw_json: HashMap<String, serde_json::Value> = serde_json::from_str(&content).expect("JSON inválido");
+    let content = fs::read_to_string(&full_path).unwrap();
+    let raw_json: HashMap<String, serde_json::Value> = serde_json::from_str(&content).unwrap();
 
     let mut keys: Vec<_> = raw_json.keys().cloned().collect();
     keys.sort();
