@@ -3,6 +3,7 @@ use std::{marker::PhantomData, os::raw::c_void};
 use image::{GenericImageView, load_from_memory};
 use nalgebra_glm as glm;
 use crate::graphics::renderer::{GlEnum, Renderer};
+use anyhow::Result;
 
 pub enum MagFiltering {
     Nearest,
@@ -109,8 +110,8 @@ impl<'a> Texture<'a> {
         mag_filter: MagFiltering,
         min_filter: MinFiltering,
         wrap: TextureWrap
-    ) -> Option<Self> {
-        let img = load_from_memory(bytes).ok()?;
+    ) -> Result<Self> {
+        let img = load_from_memory(bytes)?;
         let (width, height) = img.dimensions();
 
         let (internal_format, data_format, raw_data) = match img {
@@ -118,7 +119,7 @@ impl<'a> Texture<'a> {
             image::DynamicImage::ImageLumaA8(buf) => (gl::RG, gl::RG, buf.into_raw()),
             image::DynamicImage::ImageRgb8(buf) => (gl::RGB8, gl::RGB, buf.into_raw()),
             image::DynamicImage::ImageRgba8(buf) => (gl::RGBA8, gl::RGBA, buf.into_raw()),
-            _ => return None, 
+            _ => anyhow::bail!("Unsupported format"), 
         };
 
         let mut id = 0u32;
@@ -151,10 +152,7 @@ impl<'a> Texture<'a> {
             gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_WRAP_T, wrap.to_gl_enum() as i32);
         }
 
-        return Some(Self {
-            id,
-            _marker: PhantomData
-        });
+        return Ok(Self { id, _marker: PhantomData });
     }
 
     pub fn bind_to_unit(&self, unit: u32) {

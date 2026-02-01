@@ -14,6 +14,7 @@ use crate::graphics::renderer::{
     vertex_array_object::{FieldType, StaticVertexLayout, VertexArrayObject}
 };
 use nalgebra_glm as glm;
+use anyhow::Result;
 
 const GLYPHS_PER_RENDER: usize = 1 << 10;
 
@@ -68,7 +69,7 @@ impl<'a> Fonts<'a> {
         };
     }
 
-    pub fn new_font(&self, renderer: &'a Renderer, bytes: &[u8]) -> Option<Font<'a>> {
+    pub fn new_font(&self, renderer: &'a Renderer, bytes: &[u8]) -> Result<Font<'a>> {
         Font::from_bytes(renderer, bytes)
     }
 
@@ -174,8 +175,8 @@ impl<'a> TextRenderConfig<'a> {
 }
 
 impl<'a> Font<'a> {
-    fn from_bytes(renderer: &'a Renderer, bytes: &[u8]) -> Option<Self> {
-        let font = Face::parse(bytes, 0).ok()?;
+    fn from_bytes(renderer: &'a Renderer, bytes: &[u8]) -> Result<Self> {
+        let font = Face::parse(bytes, 0)?;
 
         let mut raw_image_data = [glm::U8Vec3::new(0, 0, 0); ATLAS_HEIGHT * ATLAS_WIDTH];
         let mut glyphs = [GlyphInfo::default(); WESTERN_CHAR_COUNT];
@@ -234,7 +235,7 @@ impl<'a> Font<'a> {
         let vbo = Buffer::<GlyphAttrs, Dynamic>::new(renderer, GLYPHS_PER_RENDER);
         let vao = VertexArrayObject::new(renderer, &[&vbo]);
 
-        return Some(Self {
+        return Ok(Self {
             texture,
             glyphs,
             ascender: font.ascender() as f32,

@@ -1,13 +1,14 @@
 use std::io::Cursor;
 
-use rodio::{Decoder, OutputStream, OutputStreamBuilder, Source, StreamError, decoder::DecoderError, source::Buffered};
+use rodio::{Decoder, OutputStream, OutputStreamBuilder, Source, source::Buffered};
+use anyhow::Result;
 
 pub struct Sounds {
     stream: OutputStream,
 }
 
 impl Sounds {
-    pub fn new() -> Result<Self, StreamError> {
+    pub fn new() -> Result<Self> {
         Ok(Self {
             stream: OutputStreamBuilder::open_default_stream()?
         })
@@ -28,7 +29,7 @@ pub struct Sound {
 }
 
 impl Sound {
-    pub fn new(bytes: &'static [u8]) -> Result<Self, DecoderError> {
+    pub fn new_static(bytes: &'static [u8]) -> Result<Self> {
         Ok(Self {
             buffered_sound: Decoder::new_wav(Cursor::new(bytes))?.buffered()
         })

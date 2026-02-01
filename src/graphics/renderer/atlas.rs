@@ -1,6 +1,7 @@
 
 use nalgebra_glm::{self as glm};
 use serde::{Deserialize, Serialize};
+use anyhow::Result;
 
 #[derive(Debug, Clone, Copy, Serialize, Deserialize)]
 pub struct FrameInfo {
@@ -35,7 +36,7 @@ pub struct UvInfo {
 
 pub trait TypedAtlas: Sized {
     type Frame: Copy;
-    fn new(bytes: &[u8]) -> Option<Self>;
+    fn new(bytes: &[u8]) -> Result<Self>;
     fn get_info(&self, frame: Self::Frame) -> (UvInfo, nalgebra_glm::Vec2);
     fn dimensions(&self) -> nalgebra_glm::U32Vec2;
 }

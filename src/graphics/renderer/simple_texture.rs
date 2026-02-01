@@ -1,6 +1,7 @@
 use macros::{GlVertex, program_interface};
 use nalgebra_glm as glm;
 use crate::graphics::renderer::{Renderer, atlas::{TypedAtlas, UvInfo}, buffer::{Buffer, Dynamic}, drawable::DrawMode, positioning::{BaseDimensions, PositionMode, SimpleTransform, generate_box, generate_oriented_box}, program::{Program, ShaderType}, texture::{MagFiltering, MinFiltering, Texture, TextureWrap}, uniform::UniformValue, vertex_array_object::{FieldType, StaticVertexLayout, VertexArrayObject}};
+use anyhow::Result;
 
 const QUADS_PER_RENDER: usize = 1 << 10;
 
@@ -63,13 +64,13 @@ impl<'a, Atlas: TypedAtlas> SimpleTexture<'a, Atlas> {
         min_filter: MinFiltering,
         wrap: TextureWrap,
         atlas: &[u8],
-    ) -> Option<Self> {
+    ) -> Result<Self> {
         let texture = Texture::from_image_bytes(renderer, texture, mag_filter, min_filter, wrap)?;
         let vbo = Buffer::<TextureVertex, Dynamic>::new(renderer, QUADS_PER_RENDER * 4);
         let vao = VertexArrayObject::new(renderer, &[&vbo]);
         let staging_area = Vec::with_capacity(QUADS_PER_RENDER * 4);
         let atlas = Atlas::new(atlas)?;
-        return Some(Self { texture, vao, vbo, staging_area, atlas });
+        return Ok(Self { texture, vao, vbo, staging_area, atlas });
     }
 
     pub fn send(&mut self) {

@@ -9,6 +9,7 @@ use glfw::{Context, Glfw, GlfwReceiver, PWindow, WindowEvent};
 use macros::atlas_bundle;
 use nalgebra_glm::{self as glm, Mat4};
 use crate::{game::{main_menu::MainMenu, playing::Playing, scene::Scene}, graphics::renderer::{Renderer, atlas::{FrameInfo, TypedAtlas, UvInfo}, fonts::{Font, Fonts}, positioning::screen_pos_to_world_pos, simple_texture::{SimpleTexture, SimpleTextureRenderer}, texture::{MagFiltering, MinFiltering, TextureWrap}}, sounds::{Sound, Sounds}};
+use anyhow::Result;
 
 fn get_window_size(window: &PWindow) -> glm::Vec2 {
     let (x, y) = window.get_size();
@@ -47,13 +48,13 @@ pub struct SoundLibrary {
 }
 
 impl SoundLibrary {
-    fn new() -> Option<SoundLibrary> {
-        Some(Self {
-            sound_player: Sounds::new().ok()?,
-            hover: Sound::new(HOVER).ok()?,
-            jump: Sound::new(JUMP).ok()?,
-            start: Sound::new(START).ok()?,
-            death: Sound::new(DEATH).ok()?,
+    fn new() -> Result<SoundLibrary> {
+        Ok(Self {
+            sound_player: Sounds::new()?,
+            hover: Sound::new_static(HOVER)?,
+            jump: Sound::new_static(JUMP)?,
+            start: Sound::new_static(START)?,
+            death: Sound::new_static(DEATH)?,
         })
     }
 }
@@ -64,10 +65,10 @@ pub struct FontLibrary<'a> {
 }
 
 impl<'a> FontLibrary<'a> {
-    fn new(renderer: &'a Renderer) -> Option<Self> {
+    fn new(renderer: &'a Renderer) -> Result<Self> {
         let fonts = Fonts::new(renderer);
         let deja_vu_sans = fonts.new_font(renderer, include_bytes!("../res/fonts/DejaVuSans.ttf"))?;
-        return Some(Self { fonts, deja_vu_sans });
+        return Ok(Self { fonts, deja_vu_sans });
     }
 }
 
@@ -77,8 +78,8 @@ pub struct TextureLibrary<'a> {
 }
 
 impl<'a> TextureLibrary<'a> {
-    fn new(renderer: &'a Renderer) -> Option<Self> {
-        Some(Self {
+    fn new(renderer: &'a Renderer) -> Result<Self> {
+        Ok(Self {
             simple_texture_renderer: SimpleTextureRenderer::new(renderer),
             simple_texture: SimpleTexture::new(
                 renderer,

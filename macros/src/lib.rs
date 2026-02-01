@@ -253,8 +253,8 @@ pub fn atlas_bundle(attr: TokenStream, item: TokenStream) -> TokenStream {
         impl TypedAtlas for #struct_name {
             type Frame = #enum_name;
 
-            fn new(bytes: &[u8]) -> Option<Self> {
-                let f: #fields_struct_name = serde_json::from_slice(bytes).ok()?;
+            fn new(bytes: &[u8]) -> anyhow::Result<Self> {
+                let f: #fields_struct_name = serde_json::from_slice(bytes)?;
                 
                 let mut max_w = 0;
                 let mut max_h = 0;
@@ -264,7 +264,7 @@ pub fn atlas_bundle(attr: TokenStream, item: TokenStream) -> TokenStream {
                     max_h = max_h.max(f.#field_idents.y + f.#field_idents.height);
                 )*
 
-                Some(Self {
+                Ok(Self {
                     dimensions: nalgebra_glm::U32Vec2::new(max_w, max_h),
                     frames: f,
                 })
