@@ -23,6 +23,16 @@ impl GlTypeEnum {
 			GlTypeEnum::Double => 8,
 		}
 	}
+
+	pub const fn is_integer(&self) -> bool {
+		matches!(*self,
+			Self::Byte |
+			Self::UnsignedByte |
+			Self::Short |
+			Self::UnsignedShort |
+			Self::Int |
+			Self::UnsignedInt)
+	}
 }
 
 impl GlEnum for GlTypeEnum {
@@ -60,9 +70,14 @@ pub trait GlType {
 	const FIELD_TYPE_SIZE: i32;
 }
 
-impl GlType for glm::Vec2 {
-	const ENUM: GlTypeEnum = GlTypeEnum::Float;
-    const FIELD_TYPE_SIZE: i32 = 2;
+impl GlType for u8 {
+	const ENUM: GlTypeEnum = GlTypeEnum::UnsignedByte;
+    const FIELD_TYPE_SIZE: i32 = 1;
+}
+
+impl GlType for glm::U8Vec3 {
+	const ENUM: GlTypeEnum = GlTypeEnum::UnsignedByte;
+    const FIELD_TYPE_SIZE: i32 = 3;
 }
 
 impl GlType for glm::U8Vec4 {
@@ -70,9 +85,19 @@ impl GlType for glm::U8Vec4 {
     const FIELD_TYPE_SIZE: i32 = 4;
 }
 
+impl GlType for glm::I16Vec2 {
+	const ENUM: GlTypeEnum = GlTypeEnum::Short;
+    const FIELD_TYPE_SIZE: i32 = 2;
+}
+
 impl GlType for f32 {
 	const ENUM: GlTypeEnum = GlTypeEnum::Float;
     const FIELD_TYPE_SIZE: i32 = 1;
+}
+
+impl GlType for glm::Vec2 {
+	const ENUM: GlTypeEnum = GlTypeEnum::Float;
+    const FIELD_TYPE_SIZE: i32 = 2;
 }
 
 impl GlType for u32 {

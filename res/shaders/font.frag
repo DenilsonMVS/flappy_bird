@@ -1,7 +1,7 @@
 #version 460 core
 
 in vec2 v_tex_coord;
-in vec4 v_color;
+in vec3 v_color;
 
 uniform sampler2D u_texture; 
 uniform float u_px_range;
@@ -23,5 +23,5 @@ void main() {
 	float screen_px_distance = screen_px_range * (sd - 0.5);
     float opacity = smoothstep(-0.5, 0.5, screen_px_distance);
 
-	color = vec4(v_color.rgb, v_color.a * opacity);
+	color = vec4(v_color, opacity);
 }

@@ -7,7 +7,7 @@ use crate::graphics::renderer::{
     Renderer, 
     buffer::{self, Buffer, Dynamic, Static}, 
     drawable::DrawMode, 
-    positioning::{BaseDimensions, PositionMode, generate_box}, 
+    positioning::{BaseDimensions, PositionMode, generate_box, vec_to_short}, 
     program::{Program, ShaderType}, 
     texture::Texture, 
     uniform::UniformValue, 
@@ -22,12 +22,18 @@ const GLYPHS_PER_RENDER: usize = 1 << 10;
 #[derive(GlVertex)]
 #[vertex(divisor = 1)]
 pub struct GlyphAttrs {
-    pub bound_min: glm::Vec2,
-    pub bound_max: glm::Vec2,
-    pub character_idx: u32,
-    
+    pub bound_min: glm::I16Vec2,
+    pub bound_max: glm::I16Vec2,    
     #[normalized]
-    pub color: glm::U8Vec4,
+    pub color: glm::U8Vec3,
+    pub character_idx: u8,
+    
+    // pub bound_min: glm::Vec2,
+    // pub bound_max: glm::Vec2,
+    // pub character_idx: u32,
+    
+    // #[normalized]
+    // pub color: glm::U8Vec4,
 }
 
 #[derive(Clone, Copy, Default)]
@@ -154,11 +160,11 @@ pub struct TextRenderConfig<'a> {
     pub position: glm::Vec2,
     pub line_height: f32,
     pub position_mode: PositionMode,
-    pub color: glm::U8Vec4,
+    pub color: glm::U8Vec3,
 }
 
 impl<'a> TextRenderConfig<'a> {
-    pub fn new(text: &'a str, position: glm::Vec2, line_height: f32, color: glm::U8Vec4) -> Self {
+    pub fn new(text: &'a str, position: glm::Vec2, line_height: f32, color: glm::U8Vec3) -> Self {
         Self {
             text,
             position,
@@ -283,9 +289,9 @@ impl<'a> Font<'a> {
                 let max_pos = glm::vec2(cursor_x, baseline_y) + info.bound_max * scale;
 
                 self.staging_area.push(GlyphAttrs {
-                    bound_min: min_pos,
-                    bound_max: max_pos,
-                    character_idx: idx as u32,
+                    bound_min: vec_to_short(&min_pos),
+                    bound_max: vec_to_short(&max_pos),
+                    character_idx: idx as u8,
                     color: text.color
                 });
 
@@ -329,9 +335,9 @@ impl<'a> Font<'a> {
                     let max_pos = glm::vec2(cursor_x, baseline_y) + info.bound_max * scale;
 
                     glyph_buffer_data.push(GlyphAttrs {
-                        bound_min: min_pos,
-                        bound_max: max_pos,
-                        character_idx: idx as u32,
+                        bound_min: vec_to_short(&min_pos),
+                        bound_max: vec_to_short(&max_pos),
+                        character_idx: idx as u8,
                         color: config.color
                     });
 

@@ -70,26 +70,24 @@ impl<'a> VertexArrayObject<'a> {
                 unsafe {
                     gl::EnableVertexArrayAttrib(id, attribute_index);
 
-                    match field.gl_type {
-                        GlTypeEnum::Int | GlTypeEnum::UnsignedInt => {
-                            gl::VertexArrayAttribIFormat(
-                                id,
-                                attribute_index,
-                                field.size,
-                                field.gl_type.to_gl_enum(),
-                                field.offset
-                            );
-                        }
-                        _ => {
-                            gl::VertexArrayAttribFormat(
-                                id,
-                                attribute_index,
-                                field.size,
-                                field.gl_type.to_gl_enum(),
-                                field.normalized as u8,
-                                field.offset
-                            );
-                        }
+                    let use_iformat = !field.normalized && field.gl_type.is_integer();
+                    if use_iformat {
+                        gl::VertexArrayAttribIFormat(
+                            id,
+                            attribute_index,
+                            field.size,
+                            field.gl_type.to_gl_enum(),
+                            field.offset
+                        );
+                    } else {
+                        gl::VertexArrayAttribFormat(
+                            id,
+                            attribute_index,
+                            field.size,
+                            field.gl_type.to_gl_enum(),
+                            field.normalized as u8,
+                            field.offset
+                        );
                     }
 
                     gl::VertexArrayAttribBinding(id, attribute_index, binding_index);
