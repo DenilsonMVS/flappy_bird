@@ -7,7 +7,7 @@ use crate::graphics::renderer::{
     Renderer, 
     buffer::{self, Buffer, Dynamic, Static}, 
     drawable::DrawMode, 
-    positioning::{BaseDimensions, PositionMode, SCALE_FACTOR, generate_box, vec_to_short}, 
+    positioning::{BaseDimensions, PositionMode, RenderBox, SCALE_FACTOR, vec_to_short}, 
     program::{Program, ShaderType}, 
     texture::Texture, 
     uniform::UniformValue, 
@@ -265,7 +265,7 @@ impl<'a> Font<'a> {
             }
         });
 
-        let text_block_box = generate_box(
+        let text_block_box = RenderBox::new(
             text.position,
             text.position_mode,
             glm::vec2(total_width, font_height),
@@ -311,7 +311,7 @@ impl<'a> Font<'a> {
                 }
             });
 
-            let text_block_box = generate_box(
+            let text_block_box = RenderBox::new(
                 config.position,
                 config.position_mode,
                 glm::vec2(total_width, font_height),

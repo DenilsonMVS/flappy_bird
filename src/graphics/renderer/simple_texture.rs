@@ -1,6 +1,6 @@
 use macros::{GlVertex, program_interface};
 use nalgebra_glm as glm;
-use crate::graphics::renderer::{Renderer, atlas::{TypedAtlas, UvInfo}, buffer::{Buffer, Dynamic}, drawable::DrawMode, positioning::{BaseDimensions, PositionMode, SCALE_FACTOR, SimpleTransform, f32_to_short, generate_box, generate_oriented_box, vec_to_short}, program::{Program, ShaderType}, texture::{MagFiltering, MinFiltering, Texture, TextureWrap}, uniform::UniformValue, vertex_array_object::{FieldType, StaticVertexLayout, VertexArrayObject}};
+use crate::graphics::renderer::{Renderer, atlas::{TypedAtlas, UvInfo}, buffer::{Buffer, Dynamic}, drawable::DrawMode, positioning::{BaseDimensions, OrientedBox, PositionMode, RenderBox, SCALE_FACTOR, SimpleTransform}, program::{Program, ShaderType}, texture::{MagFiltering, MinFiltering, Texture, TextureWrap}, uniform::UniformValue, vertex_array_object::{FieldType, StaticVertexLayout, VertexArrayObject}};
 use anyhow::Result;
 
 const QUADS_PER_RENDER: usize = 1 << 10;
@@ -9,8 +9,8 @@ const QUADS_PER_RENDER: usize = 1 << 10;
 #[derive(GlVertex, Debug)]
 #[vertex(divisor = 1)]
 struct TextureVertex {
-    top_left: glm::I16Vec2,
-    top_right: glm::I16Vec2,
+    center: glm::I16Vec2,
+    top_edge: glm::I16Vec2,
     uv_min: glm::U16Vec2,
     uv_max: glm::U16Vec2,
 }
@@ -104,17 +104,18 @@ impl<'a, Atlas: TypedAtlas> SimpleTexture<'a, Atlas> {
         uv_data: &UvInfo,
     ) {
         let original_size = uv_data.get_original_dimensions();
-        let simple_box = generate_box(position, position_mode, original_size, base_dimension);
-
+        let simple_box = RenderBox::new(position, position_mode, original_size, base_dimension);
+        
         self.staging_area.push(TextureVertex {
-            top_left: vec_to_short(&glm::vec2(simple_box.min.x, simple_box.max.y)),
-            top_right: vec_to_short(&glm::vec2(simple_box.max.x, simple_box.max.y)),
+            center: simple_box.get_center(),
+            top_edge: simple_box.get_top_edge(),
             uv_min: uv_data.min,
             uv_max: uv_data.max,
         });
     }
 
-    pub fn add_quad_simple_transform(&mut self,
+    pub fn add_quad_simple_transform(
+        &mut self,
         position: glm::Vec2,
         position_mode: PositionMode,
         base_dimension: BaseDimensions,
@@ -122,40 +123,34 @@ impl<'a, Atlas: TypedAtlas> SimpleTexture<'a, Atlas> {
         transform: SimpleTransform,
     ) {
         let original_size = uv_data.get_original_dimensions();
-        let simple_box = generate_box(position, position_mode, original_size, base_dimension);
+        let simple_box = RenderBox::new(position, position_mode, original_size, base_dimension);
 
-        let (l, r) = (f32_to_short(simple_box.min.x), f32_to_short(simple_box.max.x));
-        let (b, t) = (f32_to_short(simple_box.min.y), f32_to_short(simple_box.max.y));
-
-        let (tl, tr, uv_min, uv_max) = match transform {
+        let (top_edge, uv_min, uv_max) = match transform {
             SimpleTransform::None => (
-                glm::vec2(l, t), glm::vec2(r, t),
-                uv_data.min, uv_data.max,
+                simple_box.get_top_edge(),
+                uv_data.min, 
+                uv_data.max
             ),
-            // For flips, we swap the UV min/max bounds while keeping geometry constant.
-            // This allows the shader to mirror the texture via coordinate mapping 
-            // without breaking the 'edge_side' calculation (height extrusion).
             SimpleTransform::FlipHorizontal => (
-                glm::vec2(l, t), glm::vec2(r, t),
-                glm::vec2(uv_data.max.x, uv_data.min.y), // Swap X bounds
+                simple_box.get_top_edge(),
+                glm::vec2(uv_data.max.x, uv_data.min.y),
                 glm::vec2(uv_data.min.x, uv_data.max.y),
             ),
             SimpleTransform::FlipVertical => (
-                glm::vec2(l, t), glm::vec2(r, t),
-                glm::vec2(uv_data.min.x, uv_data.max.y), // Swap Y bounds
+                simple_box.get_top_edge(),
+                glm::vec2(uv_data.min.x, uv_data.max.y),
                 glm::vec2(uv_data.max.x, uv_data.min.y),
             ),
-            // Rotations require geometry vertex swaps since they change the 
-            // orientation of the "top" edge itself.
             SimpleTransform::Rotate180 => (
-                glm::vec2(r, b), glm::vec2(l, b),
-                uv_data.min, uv_data.max,
+                -simple_box.get_top_edge(),
+                uv_data.min,
+                uv_data.max
             )
         };
 
         self.staging_area.push(TextureVertex {
-            top_left: tl,
-            top_right: tr,
+            center: simple_box.get_center(),
+            top_edge,
             uv_min,
             uv_max,
         });
@@ -169,12 +164,12 @@ impl<'a, Atlas: TypedAtlas> SimpleTexture<'a, Atlas> {
         up_vector: glm::Vec2,
         uv_data: &UvInfo,
     ) {
-        let oriented_box = generate_oriented_box(
+        let oriented_box = OrientedBox::new(
             position, position_mode, original_size, base_dimension, up_vector);
-
+        
         self.staging_area.push(TextureVertex {
-            top_left: vec_to_short(&oriented_box.top_left),
-            top_right: vec_to_short(&oriented_box.top_right),
+            center: oriented_box.get_center(),
+            top_edge: oriented_box.get_top_edge(),
             uv_min: uv_data.min,
             uv_max: uv_data.max,
         });
