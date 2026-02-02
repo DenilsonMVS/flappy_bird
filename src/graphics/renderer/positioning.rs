@@ -1,7 +1,7 @@
 
 use nalgebra_glm as glm;
 
-pub const MAXIMUM_ABS_SPACE: f32 = 4.0;
+pub const MAXIMUM_ABS_SPACE: f32 = 8.0;
 pub const SCALE_FACTOR: f32 = i16::MAX as f32 / MAXIMUM_ABS_SPACE;
 
 pub const fn f32_to_short(v: f32) -> i16 {
