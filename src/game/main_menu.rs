@@ -176,6 +176,7 @@ impl<'a> Scene for MainMenu<'a> {
                 opening_y_position: self.rng.random_range(-MAX_PIPE_CENTER_DIST..MAX_PIPE_CENTER_DIST),
             };
             self.smaller_pipe += 1;
+            self.smaller_pipe %= PIPE_AMOUNT;
         }
 
         let now = context.now;
