@@ -270,12 +270,10 @@ pub fn atlas_bundle(attr: TokenStream, item: TokenStream) -> TokenStream {
                 })
             }
 
-            fn get_info(&self, frame: Self::Frame) -> UvInfo {
-                let f = match frame {
-                    #(#enum_name::#variant_idents => &self.frames.#field_idents),*
-                };
-                
-                f.to_uv()
+            fn get_info(&self, frame: Self::Frame) -> FrameInfo {
+                match frame {
+                    #(#enum_name::#variant_idents => self.frames.#field_idents),*
+                }
             }
 
             fn dimensions(&self) -> nalgebra_glm::U16Vec2 {

@@ -8,7 +8,7 @@ use std::time;
 use glfw::{Context, Glfw, GlfwReceiver, PWindow, WindowEvent};
 use macros::atlas_bundle;
 use nalgebra_glm::{self as glm, Mat4};
-use crate::{game::{main_menu::MainMenu, playing::Playing, scene::Scene}, graphics::renderer::{Renderer, atlas::{FrameInfo, TypedAtlas, UvInfo}, fonts::{Font, Fonts}, positioning::screen_pos_to_world_pos, simple_texture::{SimpleTexture, SimpleTextureRenderer}, texture::{MagFiltering, MinFiltering, TextureWrap}}, sounds::{Sound, Sounds}};
+use crate::{game::{main_menu::MainMenu, playing::Playing, scene::Scene}, graphics::renderer::{Renderer, atlas::{FrameInfo, TypedAtlas}, fonts::{Font, Fonts}, positioning::screen_pos_to_world_pos, simple_texture::{SimpleTexture, SimpleTextureRenderer}, texture::{MagFiltering, MinFiltering, TextureWrap}}, sounds::{Sound, Sounds}};
 use anyhow::Result;
 
 fn get_window_size(window: &PWindow) -> glm::Vec2 {

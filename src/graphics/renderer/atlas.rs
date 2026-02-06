@@ -12,12 +12,16 @@ pub struct FrameInfo {
 }
 
 impl FrameInfo {
-    pub fn to_uv(&self) -> UvInfo {
+    pub fn get_uv(&self) -> UvInfo {
         let min = glm::vec2(self.x, self.y);
         let frame_size = glm::vec2(self.width, self.height);
         let max = min + frame_size;
 
         return UvInfo { min, max };
+    }
+
+    pub fn get_original_dimensions(&self) -> glm::Vec2 {
+        glm::vec2(self.width as f32, self.height as f32)
     }
 }
 
@@ -27,15 +31,9 @@ pub struct UvInfo {
     pub max: glm::U16Vec2,
 }
 
-impl UvInfo {
-    pub fn get_original_dimensions(&self) -> glm::Vec2 {
-        (self.max - self.min).map(|x| x as f32)
-    }
-}
-
 pub trait TypedAtlas: Sized {
     type Frame: Copy;
     fn new(bytes: &[u8]) -> Result<Self>;
-    fn get_info(&self, frame: Self::Frame) -> UvInfo;
+    fn get_info(&self, frame: Self::Frame) -> FrameInfo;
     fn dimensions(&self) -> nalgebra_glm::U16Vec2;
 }

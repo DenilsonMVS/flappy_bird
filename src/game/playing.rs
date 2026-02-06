@@ -1,7 +1,7 @@
 
 use std::time::{self, Duration};
 
-use crate::{Atlas, AtlasFrame, MainContext, NextScene, game::{defs::{BIRD_RADIUS, BIRD_START_POSITION, GRAVITY, HORIZONTAL_SPEED, MAX_PIPE_CENTER_DIST, OFFSET_PIPE_DEL, PIPE_AMOUNT, PIPE_SPACE, PIPE_START_POSITION, PIPE_WIDTH, REPEATED_PIPES, SCENE_HEIGHT, SPACE_BETWEEN_PIPES, SPEED_GAIN_JUMPING}, scene::Scene}, graphics::renderer::{ClearField, atlas::UvInfo, fonts::{Font, TextRenderConfig}, positioning::{BaseDimensions, PositionMode, SimpleTransform, scale_dimension}, simple_texture::SimpleTexture}};
+use crate::{Atlas, AtlasFrame, MainContext, NextScene, game::{defs::{BIRD_RADIUS, BIRD_START_POSITION, GRAVITY, HORIZONTAL_SPEED, MAX_PIPE_CENTER_DIST, OFFSET_PIPE_DEL, PIPE_AMOUNT, PIPE_SPACE, PIPE_START_POSITION, PIPE_WIDTH, REPEATED_PIPES, SCENE_HEIGHT, SPACE_BETWEEN_PIPES, SPEED_GAIN_JUMPING}, scene::Scene}, graphics::renderer::{ClearField, atlas::FrameInfo, fonts::{Font, TextRenderConfig}, positioning::{BaseDimensions, PositionMode, SimpleTransform, scale_dimension}, simple_texture::SimpleTexture}};
 use glfw::{Action, Key};
 use nalgebra_glm as glm;
 use rand::{Rng, rngs::ThreadRng};
@@ -37,7 +37,7 @@ impl BirdFlyState {
         self.last_change = *now;
     }
 
-    fn get_texture_state(&self, simple_texture: &SimpleTexture<Atlas>) -> UvInfo {
+    fn get_texture_state(&self, simple_texture: &SimpleTexture<Atlas>) -> FrameInfo {
         simple_texture.get_frame_info(match self.current_index {
             0 => AtlasFrame::Bird1,
             1 | 4 => AtlasFrame::Bird2,
@@ -178,8 +178,9 @@ impl Playing {
     }
 
     fn send_bird(&mut self, simple_texture: &mut SimpleTexture<Atlas>) {
-        let uv_data = self.bird_fly_state.get_texture_state(simple_texture);
-        let original_size = uv_data.get_original_dimensions();
+        let frame_info = self.bird_fly_state.get_texture_state(simple_texture);
+        let uv_data = frame_info.get_uv();
+        let original_size = frame_info.get_original_dimensions();
         
         let velocity = glm::vec2(HORIZONTAL_SPEED, self.vertical_speed);
         let direction = glm::normalize(&velocity);

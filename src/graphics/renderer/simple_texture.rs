@@ -1,6 +1,6 @@
 use macros::{GlVertex, program_interface};
 use nalgebra_glm as glm;
-use crate::graphics::renderer::{Renderer, atlas::{TypedAtlas, UvInfo}, buffer::{Buffer, Dynamic}, drawable::DrawMode, positioning::{BaseDimensions, OrientedBox, PositionMode, RenderBox, SCALE_FACTOR, SimpleTransform}, program::{Program, ShaderType}, texture::{MagFiltering, MinFiltering, Texture, TextureWrap}, uniform::UniformValue, vertex_array_object::{FieldType, StaticVertexLayout, VertexArrayObject}};
+use crate::graphics::renderer::{Renderer, atlas::{FrameInfo, TypedAtlas, UvInfo}, buffer::{Buffer, Dynamic}, drawable::DrawMode, positioning::{BaseDimensions, OrientedBox, PositionMode, RenderBox, SCALE_FACTOR, SimpleTransform}, program::{Program, ShaderType}, texture::{MagFiltering, MinFiltering, Texture, TextureWrap}, uniform::UniformValue, vertex_array_object::{FieldType, StaticVertexLayout, VertexArrayObject}};
 use anyhow::Result;
 
 const QUADS_PER_RENDER: usize = 1 << 10;
@@ -93,7 +93,7 @@ impl<'a, Atlas: TypedAtlas> SimpleTexture<'a, Atlas> {
         self.staging_area.clear();
     }
 
-    pub fn get_frame_info(&self, frame: Atlas::Frame) -> UvInfo {
+    pub fn get_frame_info(&self, frame: Atlas::Frame) -> FrameInfo {
         self.atlas.get_info(frame)
     }
 
@@ -101,9 +101,10 @@ impl<'a, Atlas: TypedAtlas> SimpleTexture<'a, Atlas> {
         position: glm::Vec2,
         position_mode: PositionMode,
         base_dimension: BaseDimensions,
-        uv_data: &UvInfo,
+        frame_info: &FrameInfo,
     ) {
-        let original_size = uv_data.get_original_dimensions();
+        let original_size = frame_info.get_original_dimensions();
+        let uv_data = frame_info.get_uv();
         let simple_box = RenderBox::new(position, position_mode, original_size, base_dimension);
         
         self.staging_area.push(TextureVertex {
@@ -119,10 +120,11 @@ impl<'a, Atlas: TypedAtlas> SimpleTexture<'a, Atlas> {
         position: glm::Vec2,
         position_mode: PositionMode,
         base_dimension: BaseDimensions,
-        uv_data: &UvInfo,
+        frame_info: &FrameInfo,
         transform: SimpleTransform,
     ) {
-        let original_size = uv_data.get_original_dimensions();
+        let original_size = frame_info.get_original_dimensions();
+        let uv_data = frame_info.get_uv();
         let simple_box = RenderBox::new(position, position_mode, original_size, base_dimension);
 
         let (top_edge, uv_min, uv_max) = match transform {
