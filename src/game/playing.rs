@@ -97,7 +97,7 @@ impl Playing {
         font.add_text(&TextRenderConfig {
             position: glm::vec2(1.0, -1.0),
             text: &score_text,
-            color: glm::vec3(30u8, 15u8, 80u8),
+            color: glm::vec4(30u8, 15u8, 80u8, 255u8),
             line_height: 0.25,
             position_mode: PositionMode::BottomRight,
         });

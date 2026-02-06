@@ -23,10 +23,10 @@ const GLYPHS_PER_RENDER: usize = 1 << 10;
 #[vertex(divisor = 1)]
 pub struct GlyphAttrs {
     pub bound_min: glm::I16Vec2,
-    pub bound_max: glm::I16Vec2,    
+    pub bound_max: glm::I16Vec2,
     #[normalized]
-    pub color: glm::U8Vec3,
-    pub character_idx: u8,
+    pub color: glm::U8Vec4,
+    pub character_idx: u32,
 }
 
 #[derive(Clone, Copy, Default)]
@@ -155,11 +155,11 @@ pub struct TextRenderConfig<'a> {
     pub position: glm::Vec2,
     pub line_height: f32,
     pub position_mode: PositionMode,
-    pub color: glm::U8Vec3,
+    pub color: glm::U8Vec4,
 }
 
 impl<'a> TextRenderConfig<'a> {
-    pub fn new(text: &'a str, position: glm::Vec2, line_height: f32, color: glm::U8Vec3) -> Self {
+    pub fn new(text: &'a str, position: glm::Vec2, line_height: f32, color: glm::U8Vec4) -> Self {
         Self {
             text,
             position,
@@ -286,7 +286,7 @@ impl<'a> Font<'a> {
                 self.staging_area.push(GlyphAttrs {
                     bound_min: vec_to_short(&min_pos),
                     bound_max: vec_to_short(&max_pos),
-                    character_idx: idx as u8,
+                    character_idx: idx as u32,
                     color: text.color
                 });
 
@@ -332,7 +332,7 @@ impl<'a> Font<'a> {
                     glyph_buffer_data.push(GlyphAttrs {
                         bound_min: vec_to_short(&min_pos),
                         bound_max: vec_to_short(&max_pos),
-                        character_idx: idx as u8,
+                        character_idx: idx as u32,
                         color: config.color
                     });
 

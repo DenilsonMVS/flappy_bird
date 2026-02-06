@@ -2,11 +2,11 @@
 
 layout (location = 0) in ivec2 a_bound_min; 
 layout (location = 1) in ivec2 a_bound_max;
-layout (location = 2) in vec3 a_color;
+layout (location = 2) in vec4 a_color;
 layout (location = 3) in uint a_glyph_index;
 
 out vec2 v_tex_coord;
-out vec3 v_color;
+out vec4 v_color;
 
 uniform mat4 u_projection;
 uniform sampler2D u_texture;
