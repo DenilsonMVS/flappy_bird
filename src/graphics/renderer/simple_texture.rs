@@ -66,9 +66,9 @@ impl<'a, Atlas: TypedAtlas> SimpleTexture<'a, Atlas> {
         atlas: &[u8],
     ) -> Result<Self> {
         let texture = Texture::from_image_bytes(renderer, texture, mag_filter, min_filter, wrap)?;
-        let vbo = Buffer::<TextureVertex, Dynamic>::new(renderer, QUADS_PER_RENDER * 4);
+        let vbo = Buffer::<TextureVertex, Dynamic>::new(renderer, QUADS_PER_RENDER);
         let vao = VertexArrayObject::new(renderer, &[&vbo]);
-        let staging_area = Vec::with_capacity(QUADS_PER_RENDER * 4);
+        let staging_area = Vec::with_capacity(QUADS_PER_RENDER);
         let atlas = Atlas::new(atlas)?;
         return Ok(Self { texture, vao, vbo, staging_area, atlas });
     }
