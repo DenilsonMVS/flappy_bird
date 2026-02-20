@@ -84,7 +84,7 @@ impl Playing {
         font.add_text(&TextRenderConfig {
             position: glm::vec2(1.0, -1.0),
             text: &score_text,
-            color: glm::vec4(30u8, 15u8, 80u8, 255u8),
+            color: glm::vec3(30u8, 15u8, 80u8),
             line_height: 0.25,
             position_mode: PositionMode::BottomRight,
         });
@@ -219,10 +219,12 @@ impl Scene for Playing {
         simple_texture.reset();
 
         self.send_text(font);
+        font.finish();
 
         self.send_scene(simple_texture);
         self.pipes.send(self.position.x, simple_texture);
         self.send_bird(simple_texture);
+        simple_texture.finish();
 
         renderer.clear(&[ClearField::Color]);
         context.texture_library.simple_texture_renderer.draw(projection_matrix, simple_texture);

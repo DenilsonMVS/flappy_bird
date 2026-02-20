@@ -10,14 +10,14 @@ pub struct Button {
     content: &'static str,
     center: glm::Vec2,
     dimensions: glm::Vec2,
-    content_color: glm::U8Vec4,
+    content_color: glm::U8Vec3,
     padding: f32,
     mouse_inside: bool,
     mouse_enter_event_ack: bool,
 }
 
 impl Button {
-    pub fn new(center: glm::Vec2, content: &'static str, content_color: glm::U8Vec4, atlas: &SimpleTexture<Atlas>) -> Self {
+    pub fn new(center: glm::Vec2, content: &'static str, content_color: glm::U8Vec3, atlas: &SimpleTexture<Atlas>) -> Self {
         let original_size = atlas.get_frame_info(AtlasFrame::Button).get_original_dimensions();
         let width = scale_dimension(original_size, BaseDimensions::Height(DEFAULT_BUTTON_HEIGHT));
         return Self {

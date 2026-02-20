@@ -25,8 +25,8 @@ pub struct GlyphAttrs {
     pub bound_min: glm::I16Vec2,
     pub bound_max: glm::I16Vec2,
     #[normalized]
-    pub color: glm::U8Vec4,
-    pub character_idx: u32,
+    pub color: glm::U8Vec3,
+    pub character_idx: u8,
 }
 
 #[derive(Clone, Copy, Default)]
@@ -154,11 +154,11 @@ pub struct TextRenderConfig<'a> {
     pub position: glm::Vec2,
     pub line_height: f32,
     pub position_mode: PositionMode,
-    pub color: glm::U8Vec4,
+    pub color: glm::U8Vec3,
 }
 
 impl<'a> TextRenderConfig<'a> {
-    pub fn new(text: &'a str, position: glm::Vec2, line_height: f32, color: glm::U8Vec4) -> Self {
+    pub fn new(text: &'a str, position: glm::Vec2, line_height: f32, color: glm::U8Vec3) -> Self {
         Self {
             text,
             position,
@@ -285,7 +285,7 @@ impl<'a> Font<'a> {
                 self.vbo.write(&GlyphAttrs {
                     bound_min: vec_to_short(&min_pos),
                     bound_max: vec_to_short(&max_pos),
-                    character_idx: idx as u32,
+                    character_idx: idx as u8,
                     color: text.color
                 });
 
@@ -331,7 +331,7 @@ impl<'a> Font<'a> {
                     glyph_buffer_data.push(GlyphAttrs {
                         bound_min: vec_to_short(&min_pos),
                         bound_max: vec_to_short(&max_pos),
-                        character_idx: idx as u32,
+                        character_idx: idx as u8,
                         color: config.color
                     });
 
@@ -348,5 +348,9 @@ impl<'a> Font<'a> {
             vao,
             amount: glyph_buffer_data.len() as i32
         }
+    }
+
+    pub fn finish(&self) {
+        self.vbo.flush();
     }
 }

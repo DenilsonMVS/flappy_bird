@@ -159,4 +159,8 @@ impl<'a, Atlas: TypedAtlas> SimpleTexture<'a, Atlas> {
             uv_max: uv_data.max,
         });
     }
+
+    pub fn finish(&self) {
+        self.vbo.flush();
+    }
 }

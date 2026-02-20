@@ -135,7 +135,7 @@ impl<'a, T: StaticVertexLayout> DynamicBuffer<'a, T> {
         let byte_size = (std::mem::size_of::<T>() * size) as isize;
 
         let storage_flags = gl::MAP_WRITE_BIT | gl::MAP_PERSISTENT_BIT | gl::MAP_COHERENT_BIT | gl::DYNAMIC_STORAGE_BIT;
-        let map_flags = gl::MAP_WRITE_BIT | gl::MAP_PERSISTENT_BIT | gl::MAP_COHERENT_BIT;
+        let map_flags = gl::MAP_WRITE_BIT | gl::MAP_PERSISTENT_BIT | gl::MAP_FLUSH_EXPLICIT_BIT;
 
         let mapped_ptr;
         unsafe {
@@ -184,6 +184,13 @@ impl<'a, T: StaticVertexLayout> DynamicBuffer<'a, T> {
             if !self.sync_obj.is_null() {
                 gl::ClientWaitSync(self.sync_obj, gl::SYNC_FLUSH_COMMANDS_BIT, 1 << 30);
             }
+        }
+    }
+
+    pub fn flush(&self) {
+        unsafe {
+            let length = (self.index * std::mem::size_of::<T>()) as isize;
+            gl::FlushMappedNamedBufferRange(self.id, 0, length);
         }
     }
 }

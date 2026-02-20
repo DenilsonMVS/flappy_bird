@@ -28,13 +28,13 @@ impl<'a> MainMenu<'a> {
             Button::new(
                 PLAY_BUTTON_CENTER,
                 "Play",
-                glm::vec4(30u8, 15u8, 80u8, 255u8),
+                glm::vec3(30u8, 15u8, 80u8),
                 &texture_library.simple_texture,
             ),
             Button::new(
                 QUIT_BUTTON_CENTER,
                 "Quit",
-                glm::vec4(30u8, 15u8, 80u8, 255u8),
+                glm::vec3(30u8, 15u8, 80u8),
                 &texture_library.simple_texture,
             ),
         ];
@@ -123,6 +123,8 @@ impl<'a> Scene for MainMenu<'a> {
                 context.sound_library.sound_player.play(context.sound_library.hover.get());
             }
         }
+
+        simple_texture.finish();
 
         renderer.clear(&[ClearField::Color]);
         context.texture_library.simple_texture_renderer.draw(projection_matrix, simple_texture);
