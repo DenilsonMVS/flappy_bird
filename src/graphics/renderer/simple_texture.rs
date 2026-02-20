@@ -1,6 +1,6 @@
 use macros::{GlVertex, program_interface};
 use nalgebra_glm as glm;
-use crate::graphics::renderer::{Renderer, atlas::{FrameInfo, TypedAtlas, UvInfo}, buffer::{Buffer, Dynamic}, drawable::DrawMode, positioning::{BaseDimensions, OrientedBox, PositionMode, RenderBox, SCALE_FACTOR, SimpleTransform}, program::{Program, ShaderType}, texture::{MagFiltering, MinFiltering, Texture, TextureWrap}, uniform::UniformValue, vertex_array_object::{FieldType, StaticVertexLayout, VertexArrayObject}};
+use crate::graphics::renderer::{Renderer, atlas::{FrameInfo, TypedAtlas, UvInfo}, buffer::{DynamicBuffer}, drawable::DrawMode, positioning::{BaseDimensions, OrientedBox, PositionMode, RenderBox, SCALE_FACTOR, SimpleTransform}, program::{Program, ShaderType}, texture::{MagFiltering, MinFiltering, Texture, TextureWrap}, uniform::UniformValue, vertex_array_object::{FieldType, StaticVertexLayout, VertexArrayObject}};
 use anyhow::Result;
 
 const QUADS_PER_RENDER: usize = 1 << 10;
@@ -42,17 +42,16 @@ impl<'a> SimpleTextureRenderer<'a> {
         self.program.bind();
         self.program.set_u_projection(projection_matrix);
         
-        simple_texture.get_texture().bind_to_unit(0);
-        simple_texture.get_vao().draw_instanced(4, simple_texture.get_quad_amount() as i32, DrawMode::TriangleStrip);
-        simple_texture.clear_staging_area();
+        simple_texture.texture.bind_to_unit(0);
+        simple_texture.vao.draw_instanced(4, simple_texture.vbo.get_len() as i32, DrawMode::TriangleStrip);
+        simple_texture.vbo.lock();
     }
 }
 
 pub struct SimpleTexture<'a, Atlas: TypedAtlas> {
     texture: Texture<'a>,
-    vbo: Buffer<'a, TextureVertex, Dynamic>,
+    vbo: DynamicBuffer<'a, TextureVertex>,
     vao: VertexArrayObject<'a>,
-    staging_area: Vec<TextureVertex>,
     atlas: Atlas,
 }
 
@@ -66,31 +65,15 @@ impl<'a, Atlas: TypedAtlas> SimpleTexture<'a, Atlas> {
         atlas: &[u8],
     ) -> Result<Self> {
         let texture = Texture::from_image_bytes(renderer, texture, mag_filter, min_filter, wrap)?;
-        let vbo = Buffer::<TextureVertex, Dynamic>::new(renderer, QUADS_PER_RENDER);
+        let vbo = DynamicBuffer::<TextureVertex>::new(renderer, QUADS_PER_RENDER);
         let vao = VertexArrayObject::new(renderer, &[&vbo]);
-        let staging_area = Vec::with_capacity(QUADS_PER_RENDER);
         let atlas = Atlas::new(atlas)?;
-        return Ok(Self { texture, vao, vbo, staging_area, atlas });
+        return Ok(Self { texture, vao, vbo, atlas });
     }
 
-    pub fn send(&mut self) {
-        self.vbo.set_sub_data(&self.staging_area, 0);
-    }
-
-    fn get_texture(&'a self) -> &'a Texture<'a> {
-        &self.texture
-    }
-
-    fn get_vao(&'a self) -> &'a VertexArrayObject<'a> {
-        &self.vao
-    }
-
-    fn get_quad_amount(&self) -> usize {
-        self.staging_area.len()
-    }
-
-    fn clear_staging_area(&mut self) {
-        self.staging_area.clear();
+    pub fn reset(&mut self) {
+        self.vbo.wait();
+        self.vbo.reset_index();
     }
 
     pub fn get_frame_info(&self, frame: Atlas::Frame) -> FrameInfo {
@@ -107,7 +90,7 @@ impl<'a, Atlas: TypedAtlas> SimpleTexture<'a, Atlas> {
         let uv_data = frame_info.get_uv();
         let simple_box = RenderBox::new(position, position_mode, original_size, base_dimension);
         
-        self.staging_area.push(TextureVertex {
+        self.vbo.write(&TextureVertex {
             center: simple_box.get_center(),
             top_edge: simple_box.get_top_edge(),
             uv_min: uv_data.min,
@@ -150,7 +133,7 @@ impl<'a, Atlas: TypedAtlas> SimpleTexture<'a, Atlas> {
             )
         };
 
-        self.staging_area.push(TextureVertex {
+        self.vbo.write(&TextureVertex {
             center: simple_box.get_center(),
             top_edge,
             uv_min,
@@ -169,7 +152,7 @@ impl<'a, Atlas: TypedAtlas> SimpleTexture<'a, Atlas> {
         let oriented_box = OrientedBox::new(
             position, position_mode, original_size, base_dimension, up_vector);
         
-        self.staging_area.push(TextureVertex {
+        self.vbo.write(&TextureVertex {
             center: oriented_box.get_center(),
             top_edge: oriented_box.get_top_edge(),
             uv_min: uv_data.min,

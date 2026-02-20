@@ -1,5 +1,4 @@
-use std::{marker::PhantomData, os::raw::c_void, ptr::null};
-
+use std::{marker::PhantomData, os::raw::c_void};
 use crate::graphics::renderer::{GlEnum, Renderer, vertex_array_object::{FieldType, StaticVertexLayout, VertexLayout}};
 
 pub enum ResizableBufferUsage {
@@ -40,23 +39,12 @@ pub trait GenericBuffer: VertexLayout {
     fn get_id(&self) -> u32;
 }
 
-pub trait StorageStrategy {}
-
-pub struct Static {}
-impl StorageStrategy for Static {}
-
-pub struct Dynamic {}
-impl StorageStrategy for Dynamic {}
-
-pub struct Resizable {}
-impl StorageStrategy for Resizable {}
-
-pub struct Buffer<'a, T: StaticVertexLayout, S: StorageStrategy> {
+pub struct StaticBuffer<'a, T: StaticVertexLayout> {
     id: u32,
-    _marker: PhantomData<&'a (S, T)>,
+    _marker: PhantomData<&'a T>,
 }
 
-impl<'a, T: StaticVertexLayout, S: StorageStrategy> VertexLayout for Buffer<'a, T, S> {
+impl<'a, T: StaticVertexLayout> VertexLayout for StaticBuffer<'a, T> {
     fn get_fields(&self) -> &'static [FieldType] {
         T::get_fields()
     }
@@ -68,13 +56,13 @@ impl<'a, T: StaticVertexLayout, S: StorageStrategy> VertexLayout for Buffer<'a, 
 	}
 }
 
-impl<'a, T: StaticVertexLayout, S: StorageStrategy> GenericBuffer for Buffer<'a, T, S> {
+impl<'a, T: StaticVertexLayout> GenericBuffer for StaticBuffer<'a, T> {
     fn get_id(&self) -> u32 {
         self.id
     }
 }
 
-impl<'a, T: StaticVertexLayout, S: StorageStrategy> Drop for Buffer<'a, T, S> {
+impl<'a, T: StaticVertexLayout> Drop for StaticBuffer<'a, T> {
     fn drop(&mut self) {
         unsafe {
             gl::DeleteBuffers(1, &self.id);
@@ -82,7 +70,7 @@ impl<'a, T: StaticVertexLayout, S: StorageStrategy> Drop for Buffer<'a, T, S> {
     }
 }
 
-impl<'a, T: StaticVertexLayout> Buffer<'a, T, Static> {
+impl<'a, T: StaticVertexLayout> StaticBuffer<'a, T> {
     pub fn new(_renderer: &'a Renderer, data: &[T]) -> Self {
         let mut id = 0u32;
         unsafe {
@@ -102,81 +90,100 @@ impl<'a, T: StaticVertexLayout> Buffer<'a, T, Static> {
     }
 }
 
-impl<'a, T: StaticVertexLayout> Buffer<'a, T, Dynamic> {
-    pub fn new(_renderer: &'a Renderer, size: usize) -> Self {
-        let mut id = 0u32;
 
-        unsafe {
-            gl::CreateBuffers(1, &mut id);
-            gl::NamedBufferStorage(
-                id, 
-                (std::mem::size_of::<T>() * size) as isize, 
-                std::ptr::null(), 
-                gl::DYNAMIC_STORAGE_BIT
-            );
-        }
+pub struct DynamicBuffer<'a, T: StaticVertexLayout> {
+    id: u32,
+    ptr: *mut T,
+    index: usize,
+    sync_obj: gl::types::GLsync,
+    _marker: PhantomData<&'a Renderer>,
+}
 
-        Self {
-            id,
-            _marker: PhantomData,
-        }
+impl<'a, T: StaticVertexLayout> VertexLayout for DynamicBuffer<'a, T> {
+    fn get_fields(&self) -> &'static [FieldType] {
+        T::get_fields()
     }
+    fn get_stride(&self) -> i32 {
+        T::get_stride()
+    }
+    fn get_divisor(&self) -> u32 {
+		T::get_divisor()
+	}
+}
 
-    pub fn set_sub_data(&mut self, data: &[T], index_offset: usize) {
+impl<'a, T: StaticVertexLayout> GenericBuffer for DynamicBuffer<'a, T> {
+    fn get_id(&self) -> u32 {
+        self.id
+    }
+}
+
+impl<'a, T: StaticVertexLayout> Drop for DynamicBuffer<'a, T> {
+    fn drop(&mut self) {
         unsafe {
-            gl::NamedBufferSubData(
-                self.id,
-                (index_offset * std::mem::size_of::<T>()) as isize,
-                (data.len() * std::mem::size_of::<T>()) as isize,
-                data.as_ptr() as *const c_void
-            );
+            if !self.sync_obj.is_null() {
+                gl::DeleteSync(self.sync_obj);
+            }
+            gl::UnmapNamedBuffer(self.id);
+            gl::DeleteBuffers(1, &self.id);
         }
     }
 }
 
-impl<'a, T: StaticVertexLayout> Buffer<'a, T, Resizable> {
-    pub fn new(_renderer: &'a Renderer) -> Self {
+impl<'a, T: StaticVertexLayout> DynamicBuffer<'a, T> {
+    pub fn new(_renderer: &'a Renderer, size: usize) -> Self {
         let mut id = 0u32;
+        let byte_size = (std::mem::size_of::<T>() * size) as isize;
+
+        let storage_flags = gl::MAP_WRITE_BIT | gl::MAP_PERSISTENT_BIT | gl::MAP_COHERENT_BIT | gl::DYNAMIC_STORAGE_BIT;
+        let map_flags = gl::MAP_WRITE_BIT | gl::MAP_PERSISTENT_BIT | gl::MAP_COHERENT_BIT;
+
+        let mapped_ptr;
         unsafe {
             gl::CreateBuffers(1, &mut id);
+            gl::NamedBufferStorage(id, byte_size, std::ptr::null(), storage_flags);
+            mapped_ptr = gl::MapNamedBufferRange(id, 0, byte_size, map_flags) as *mut T;
         }
 
-        return Self {
+        Self {
             id,
-            _marker: PhantomData
-        };
-    }
-
-    pub fn reserve_data(&mut self, amount: usize, usage: ResizableBufferUsage) {
-        unsafe {
-            gl::NamedBufferData(
-                self.id,
-                (std::mem::size_of::<T>() * amount) as isize,
-                null(),
-                usage.to_gl_enum()
-            );
+            ptr: mapped_ptr,
+            index: 0,
+            sync_obj: std::ptr::null(),
+            _marker: PhantomData,            
         }
     }
 
-    pub fn set_data(&mut self, data: &[T], usage: ResizableBufferUsage) {
+    pub fn write(&mut self, value: &T) {
         unsafe {
-            gl::NamedBufferData(
-                self.id,
-                (data.len() * std::mem::size_of::<T>()) as isize,
-                data.as_ptr() as *const c_void,
-                usage.to_gl_enum()
-            );
+            let dst = self.ptr.add(self.index);
+            std::ptr::copy_nonoverlapping(value as *const T, dst, 1);
+            self.index += 1;
         }
     }
 
-    pub fn set_sub_data(&mut self, data: &[T], index_offset: usize) {
+    pub fn reset_index(&mut self) {
+        self.index = 0;
+    }
+
+    pub fn lock(&mut self) {
         unsafe {
-            gl::NamedBufferSubData(
-                self.id,
-                (index_offset * std::mem::size_of::<T>()) as isize,
-                (data.len() * std::mem::size_of::<T>()) as isize,
-                data.as_ptr() as *const c_void
-            );
+            if !self.sync_obj.is_null() {
+                gl::DeleteSync(self.sync_obj);
+            }
+
+            self.sync_obj = gl::FenceSync(gl::SYNC_GPU_COMMANDS_COMPLETE, 0);
+        }
+    }
+
+    pub fn get_len(&self) -> usize {
+        self.index
+    }
+
+    pub fn wait(&mut self) {
+        unsafe {
+            if !self.sync_obj.is_null() {
+                gl::ClientWaitSync(self.sync_obj, gl::SYNC_FLUSH_COMMANDS_BIT, 1 << 30);
+            }
         }
     }
 }

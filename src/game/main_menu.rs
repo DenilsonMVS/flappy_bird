@@ -112,6 +112,8 @@ impl<'a> Scene for MainMenu<'a> {
         let projection_matrix = &context.proj_matrix;
         let simple_texture = &mut context.texture_library.simple_texture;
 
+        simple_texture.reset();
+
         self.send_scene(simple_texture);
         self.pipes.send(self.x_offset, simple_texture);
 
@@ -121,8 +123,6 @@ impl<'a> Scene for MainMenu<'a> {
                 context.sound_library.sound_player.play(context.sound_library.hover.get());
             }
         }
-
-        simple_texture.send();
 
         renderer.clear(&[ClearField::Color]);
         context.texture_library.simple_texture_renderer.draw(projection_matrix, simple_texture);

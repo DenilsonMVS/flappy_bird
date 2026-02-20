@@ -215,14 +215,14 @@ impl Scene for Playing {
         let simple_texture = &mut context.texture_library.simple_texture;
         let font = &mut context.font_library.deja_vu_sans;
 
+        font.reset();
+        simple_texture.reset();
+
         self.send_text(font);
-        font.send();
 
         self.send_scene(simple_texture);
         self.pipes.send(self.position.x, simple_texture);
         self.send_bird(simple_texture);
-
-        simple_texture.send();
 
         renderer.clear(&[ClearField::Color]);
         context.texture_library.simple_texture_renderer.draw(projection_matrix, simple_texture);
