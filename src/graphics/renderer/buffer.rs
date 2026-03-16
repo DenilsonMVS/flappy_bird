@@ -1,39 +1,5 @@
 use std::{marker::PhantomData, os::raw::c_void};
-use crate::graphics::renderer::{GlEnum, Renderer, vertex_array_object::{FieldType, StaticVertexLayout, VertexLayout}};
-
-pub enum ResizableBufferUsage {
-    StreamDraw,
-    StreamRead,
-    StreamCopy,
-    DynamicDraw,
-    DynamicRead,
-    DynamicCopy,
-}
-
-impl GlEnum for ResizableBufferUsage {
-	fn to_gl_enum(&self) -> u32 {
-		match self {
-			Self::StreamDraw  => gl::STREAM_DRAW,
-			Self::StreamRead  => gl::STREAM_READ,
-			Self::StreamCopy  => gl::STREAM_COPY,
-			Self::DynamicDraw => gl::DYNAMIC_DRAW,
-			Self::DynamicRead => gl::DYNAMIC_READ,
-			Self::DynamicCopy => gl::DYNAMIC_COPY,
-		}
-	}
-
-	fn from_gl_enum(value: u32) -> Option<Self> {
-		match value {
-			gl::STREAM_DRAW  => Some(Self::StreamDraw),
-			gl::STREAM_READ  => Some(Self::StreamRead),
-			gl::STREAM_COPY  => Some(Self::StreamCopy),
-			gl::DYNAMIC_DRAW => Some(Self::DynamicDraw),
-			gl::DYNAMIC_READ => Some(Self::DynamicRead),
-			gl::DYNAMIC_COPY => Some(Self::DynamicCopy),
-			_ => None,
-		}
-	}
-}
+use crate::graphics::renderer::{Renderer, vertex_array_object::{FieldType, StaticVertexLayout, VertexLayout}};
 
 pub trait GenericBuffer: VertexLayout {
     fn get_id(&self) -> u32;
